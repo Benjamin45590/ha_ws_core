@@ -128,7 +128,7 @@
       },
       "wunderground": {
         "title": "Envoi vers Weather Underground",
-        "description": "Envoie les observations vers votre station Weather Underground. Laissez vide pour ignorer.",
+        "description": "Envoyez vos observations vers votre station Weather Underground personnelle. Laissez les champs vides pour ignorer. Les identifiants seront validés.",
         "data": {
           "wu_station_id": "ID de station (ex. IATHEN123) - laisser vide pour ignorer",
           "wu_api_key": "Clé API - laisser vide pour ignorer",
@@ -138,7 +138,7 @@
       },
       "air_quality": {
         "title": "Qualité de l'air",
-        "description": "{info}",
+        "description": "Données de qualité de l'air (PM2,5 · PM10 · NO₂ · Ozone) via Open-Meteo. Gratuit, sans clé API. Utilise les coordonnées de prévision.",
         "data": {
           "aqi_interval_min": "Intervalle d'actualisation",
           "_go_back": "← Retour à l'étape précédente"
@@ -146,14 +146,14 @@
       },
       "pollen": {
         "title": "Données pollen",
-        "description": "{info}",
+        "description": "Les données de pollen proviennent de l'API Open-Meteo Air Quality (gratuit, sans clé). Inclut : aulne, bouleau, graminées, armoise, olivier et ambroisie. Les mises à jour sont mutualisées avec la récupération de la qualité de l'air.",
         "data": {
           "_go_back": "← Retour à l'étape précédente"
         }
       },
       "solar_forecast": {
         "title": "Prévision solaire",
-        "description": "{info}",
+        "description": "Prévision de production solaire gratuite via forecast.solar. Utilise les coordonnées de prévision. Azimut : 0=N, 90=E, 180=S, 270=O. Inclinaison : degrés depuis l'horizontale.",
         "data": {
           "solar_peak_kw": "Puissance crête (kWp)",
           "solar_panel_azimuth": "Azimut du panneau",
@@ -320,7 +320,7 @@
       },
       "wunderground_opt": {
         "title": "Weather Underground",
-        "description": "{info}",
+        "description": "Laissez la clé API vide pour conserver la clé existante. Les identifiants seront validés.",
         "data": {
           "wu_station_id": "ID de station",
           "wu_api_key": "Clé API",
@@ -329,19 +329,19 @@
       },
       "air_quality_opt": {
         "title": "Paramètres qualité de l'air",
-        "description": "{info}",
+        "description": "Données de qualité de l'air via l'API Open-Meteo Air Quality. Gratuit, sans clé API.",
         "data": {
           "aqi_interval_min": "Intervalle d'actualisation"
         }
       },
       "pollen_opt": {
         "title": "Paramètres pollen",
-        "description": "{info}",
+        "description": "Données de pollen via l'API Open-Meteo Air Quality (gratuit, sans clé). Mutualisé avec la récupération de la qualité de l'air.",
         "data": {}
       },
       "solar_forecast_opt": {
         "title": "Paramètres prévision solaire",
-        "description": "{info}",
+        "description": "Azimut : 0=N, 90=E, 180=S, 270=O. Inclinaison : degrés depuis l'horizontale.",
         "data": {
           "solar_peak_kw": "Puissance crête (kWp)",
           "solar_panel_azimuth": "Azimut du panneau",
@@ -596,6 +596,11 @@
           "jaune": "Jaune (soyez attentifs)",
           "orange": "Orange (soyez très vigilants)",
           "rouge": "Rouge (vigilance absolue)"
+        },
+        "state_attributes": {
+          "phenomena": {
+            "name": "Phénomènes actifs"
+          }
         }
       },
       "fire_danger_vigilance": {
@@ -619,7 +624,21 @@
         }
       },
       "river_level": {
-        "name": "Hauteur du cours d'eau"
+        "name": "Hauteur du cours d'eau",
+        "state_attributes": {
+          "station": {
+            "name": "Station"
+          },
+          "river": {
+            "name": "Cours d'eau"
+          },
+          "station_code": {
+            "name": "Code station"
+          },
+          "observed_at": {
+            "name": "Observé à"
+          }
+        }
       },
       "rain_next_60min": {
         "name": "Pluie prévue (60 min)"
@@ -899,6 +918,10 @@
           "count": {
             "name": "Nombre de jours affichés"
           }
+        },
+        "state": {
+          "available": "Disponible",
+          "unavailable": "Indisponible"
         }
       },
       "temperature_high_24h": {
@@ -1189,6 +1212,16 @@
           "days_to_new_moon": {
             "name": "Prochaine nouvelle lune"
           }
+        },
+        "state": {
+          "new_moon": "Nouvelle lune",
+          "waxing_crescent": "Premier croissant",
+          "first_quarter": "Premier quartier",
+          "waxing_gibbous": "Lune gibbeuse croissante",
+          "full_moon": "Pleine lune",
+          "waning_gibbous": "Lune gibbeuse décroissante",
+          "last_quarter": "Dernier quartier",
+          "waning_crescent": "Dernier croissant"
         }
       },
       "moon_illumination": {
@@ -1513,6 +1546,30 @@
         "Australia": "Australie",
         "North America East": "Amérique du Nord (Est)",
         "North America West": "Amérique du Nord (Ouest)"
+      }
+    },
+    "units_mode": {
+      "options": {
+        "auto": "Auto (suit Home Assistant)",
+        "metric": "Métrique (km/h, mm, hPa)",
+        "imperial": "Impérial (mph, in, inHg)"
+      }
+    },
+    "temp_unit": {
+      "options": {
+        "auto": "Auto (suit Home Assistant)",
+        "C": "Celsius (°C)",
+        "F": "Fahrenheit (°F)"
+      }
+    },
+    "forecast_provider": {
+      "options": {
+        "open_meteo": "Open-Meteo (gratuit, sans clé)",
+        "met_no": "Met.no (gratuit, sans clé)",
+        "nws": "NWS/NOAA (gratuit, sans clé, États-Unis uniquement)",
+        "owm": "OpenWeatherMap (offre gratuite, clé API requise)",
+        "pirate": "Pirate Weather (offre gratuite, clé API requise)",
+        "meteo_france": "Météo France (offre gratuite, clé API requise)"
       }
     }
   }
