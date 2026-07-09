@@ -2,7 +2,7 @@ site_name: Weather Station Core
 site_description: >
   Turn any personal weather station into a complete weather intelligence system:
   forecasting, nowcasting, fire danger, irrigation, lightning, and data quality.
-  150+ sensors for Home Assistant.
+  170+ derived sensors for Home Assistant.
 site_url: https://kmich.github.io/ha_ws_core/
 repo_url: https://github.com/kmich/ha_ws_core
 repo_name: kmich/ha_ws_core

@@ -8,7 +8,7 @@ change, unless it is a straightforward bug fix.
 ## Translations
 
 Eight languages ship with the integration: English, French, German, Dutch, Spanish,
-Italian, Portuguese, Polish. Translations cover all 150+ entity names, config flow
+Italian, Portuguese, Polish. Translations cover all 170+ entity names, config flow
 strings, state labels, and attribute keys.
 
 To add a new language:

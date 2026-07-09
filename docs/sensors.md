@@ -100,8 +100,9 @@ Refreshes every 15 minutes.
 
 ## Optional: Comfort Indices (`enable_comfort_indices`)
 
-All 21 sensors are created when the feature is enabled.
-THSW index, clearness index, and cloud cover also require a solar radiation sensor.
+All 23 sensors are created when the feature is enabled.
+THSW index, clearness index, cloud cover, solar energy, max solar radiation,
+peak sun hours, and net radiation also require a solar radiation sensor.
 
 | Entity ID | Unit | Formula / reference | Notes |
 |---|---|---|---|
@@ -122,10 +123,12 @@ THSW index, clearness index, and cloud cover also require a solar radiation sens
 | `sensor.ws_wbgt` | °C | — | Wet Bulb Globe Temperature |
 | `sensor.ws_air_density` | kg/m³ | — | Air density from temperature and pressure |
 | `sensor.ws_specific_humidity` | g/kg | — | Specific humidity |
-| `sensor.ws_solar_irradiation_daily` | Wh/m² | — | Daily solar energy accumulation |
+| `sensor.ws_max_solar_radiation` | W/m² | — | Clear-sky solar radiation estimate |
+| `sensor.ws_solar_energy_today` | Wh/m² | — | Daily solar energy accumulation |
+| `sensor.ws_peak_sun_hours` | h | — | Peak sun hours from daily solar energy |
 | `sensor.ws_net_radiation` | W/m² | FAO-56 | Net radiation |
 | `sensor.ws_irrigation_deficit` | mm | — | Irrigation water deficit |
-| `sensor.ws_monthly_wind_run` | km | — | Monthly accumulated wind travel |
+| `sensor.ws_wind_run_month` | km | — | Monthly accumulated wind travel |
 
 ---
 

@@ -3,8 +3,8 @@
 **Turn any personal weather station into a complete weather intelligence system.**
 
 Weather Station Core (`ws_core`) is a Home Assistant custom integration that reads raw
-sensor data from any HA-integrated weather station and derives 150+ meteorological
-values through a guided setup flow.
+sensor data from any HA-integrated weather station and produces 170+ derived
+sensors through a guided setup flow.
 
 ---
 
@@ -35,7 +35,6 @@ wind direction, cumulative rainfall. ws_core does the rest.
 | Pressure trend | WMO No. 306 least-squares regression |
 | Kalman-filtered rain rate | De-noised tipping-bucket readings |
 | ET₀ (Hargreaves-Samani) | No solar radiation sensor required |
-| Moon phase and illumination | Meeus (1998) astronomical algorithms |
 | Adaptive rain probability | 90-day Brier-score blended local + NWP |
 | Streak counters | Dry days, heat days, frost days |
 
@@ -49,6 +48,7 @@ wind direction, cumulative rainfall. ws_core does the rest.
 | Lightning Detection | Strike count, distance, rate, clearance countdown, proximity state |
 | Indoor Sensors | Indoor temp/humidity/CO₂, deltas, comfort score, plus named multi-room monitoring (per-room temp delta, humidity, CO₂ and comfort) |
 | Degree Days | HDD, CDD, GDD, leaf wetness |
+| Moon | Moon phase and illumination |
 | Air Quality | AQI, NO₂, ozone (Open-Meteo, free) |
 | Network Uploads | WU, Weathercloud, PWSWeather, WOW, AWEKAS, CWOP, OWM Stations, Windy |
 | MQTT Discovery | 70+ sensors as MQTT Discovery payloads |

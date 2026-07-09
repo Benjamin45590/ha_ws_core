@@ -131,7 +131,7 @@ Toggle optional feature groups on or off. You can change these later via Configu
 | Station Diagnostics | Drift detection, data-quality score |
 | FWI Components | Individual FWI moisture codes |
 | Advanced Sensors | Zambretti number, hourly ET₀, smoothed wind direction |
-| Precipitation Nowcast | Minutes until rain, intensity, 60-min total |
+| Precipitation Nowcast | Creates `sensor.ws_minutes_until_rain`, intensity, and 60-min total |
 
 ### Step 8 — Alerts
 
@@ -147,6 +147,11 @@ click the device to see all created entities.
 
 `binary_sensor.ws_package_ok` is `On` when all required source sensors are available.
 If it shows `Off`, go to Configure and remap any missing source sensors.
+
+If you want the rain countdown shown in the README, make sure **Precipitation
+Nowcast** is enabled under **Configure → Features**. The
+`sensor.ws_minutes_until_rain` entity is optional and is only created when that
+feature is enabled.
 
 ---
 

@@ -6,20 +6,28 @@
 [![Validate][validate-badge]][validate-url]
 [![Translations][translation-badge]][translation-url]
 
-**The Intelligence Layer for your Home Assistant Weather Station.**
+**Know the exact minute the rain starts - and what your weather station was trying to tell you.**
 
-Turn any weather station into a complete weather intelligence system: local forecasting, precipitation nowcasting, fire danger, irrigation, lightning detection, and data quality. 50+ derived sensors out of the box, 150+ with every optional feature enabled. Fully local-capable. No API keys required for core features.
+`ws_core` turns the plain temperature, wind, and rain sensors you already have in Home Assistant into a full weather intelligence system. Its headline trick, when you enable Precipitation Nowcast, is watching *your own* rain gauge and correcting the forecast against it, so you get a live countdown to the minute rain begins.
+
+> ### 🌧️ `sensor.ws_minutes_until_rain` → **7 min**
+
+The **50+ core sensors run entirely on your machine**, computed from your own station data. No cloud, no API keys, nothing leaves your network. Optional extras (precipitation nowcast, air quality, forecast blending) add cloud enrichment only when *you* switch them on.
 
 ![Enhanced dashboard](screenshots/dashboard-advanced.png)
 
 ---
 
-## 🚀 What does it do?
+## 🚀 Try this one thing first
 
-* **Never Get Caught in the Rain:** Uses your live rain gauge to correct cloud forecasts, giving you a countdown to the minute the rain starts (`sensor.ws_minutes_until_rain`).
-* **Stop the Sprinklers Precisely:** Calculates exact Evapotranspiration (ET0) so your smart irrigation system knows exactly how much water the lawn actually needs.
-* **Offline Zambretti Forecast:** Predicts the next 12 hours based purely on your local barometric pressure trends, even if the internet goes down.
-* **Automate Everything:** Includes 10 ready-to-use blueprints for TTS alerts, freeze warnings, irrigation skips, lightning safety, and high-wind awning retraction.
+**Never get caught in the rain.** Point `ws_core` at your rain gauge, enable **Precipitation Nowcast** during setup (or later under **Configure → Features**), then watch `sensor.ws_minutes_until_rain` and have Home Assistant announce before the first drop. For simpler rain-rate or probability alerts, the [Rain Start Warning blueprint](blueprints/automation/ws_core/rain_start.yaml) sets up notifications in under a minute.
+
+Once you are hooked, here is the rest:
+
+* **Stop the sprinklers precisely.** Calculates real Evapotranspiration (ET0) so your smart irrigation knows exactly how much water the lawn actually needs.
+* **Forecast with the internet off.** The offline Zambretti forecast predicts the next 12 hours from your local barometric pressure trend alone.
+* **Automate your home around the weather.** 10 ready-to-use blueprints: TTS rain alerts, freeze warnings, irrigation skips, lightning safety, and high-wind awning retraction.
+* **...and 170+ derived sensors in total** covering comfort, fire danger, solar, soil, and data quality once you enable the optional feature packs (see the [nerd section](#-advanced-features-the-nerd-section)).
 
 ---
 
@@ -90,6 +98,24 @@ Behind the scenes, `ws_core` implements rigorous meteorological and scientific a
 * **Localized UI & Sensors:** The setup wizard (including the hemisphere and climate-region pickers) and the human-readable sensors (conditions summary, alert message, frost risk) follow your Home Assistant language, with English, French, German, Spanish, Italian, Dutch, Polish, and Portuguese built in.
 
 For the math, citations, and formulas behind these features, read the [**Scientific Documentation**](docs/science.md).
+
+---
+
+## 🤔 Why not just use template sensors?
+
+You can absolutely hand-roll a heat-index template or install Thermal Comfort. The difference is scope and correctness:
+
+| | A few template sensors | Thermal Comfort | **`ws_core`** |
+|---|---|---|---|
+| Comfort indices (heat index, wind chill, dew point) | Manual | ✅ | ✅ |
+| Rain-start countdown from your own gauge | ❌ | ❌ | ✅ |
+| Evapotranspiration (ET0) for irrigation | ❌ | ❌ | ✅ |
+| Offline pressure-trend forecast | ❌ | ❌ | ✅ |
+| Fire danger, UTCI/WBGT, frost point | ❌ | ❌ | ✅ |
+| Ready-made automation blueprints | ❌ | ❌ | ✅ (10) |
+| Runs fully local | ✅ | ✅ | ✅ (core) |
+
+Already on Thermal Comfort? There is a [step-by-step migration guide](docs/migrating_from_thermal_comfort.md) that keeps your history.
 
 ---
 
