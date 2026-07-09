@@ -14,6 +14,8 @@
 
 The **50+ core sensors run entirely on your machine**, computed from your own station data. No cloud, no API keys, nothing leaves your network. Optional extras (precipitation nowcast, air quality, forecast blending) add cloud enrichment only when *you* switch them on.
 
+[![Open your Home Assistant instance and add this repository to HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=kmich&repository=ha_ws_core&category=integration)
+
 ![Enhanced dashboard](screenshots/dashboard-advanced.png)
 
 ---
@@ -35,13 +37,25 @@ Once you are hooked, here is the rest:
 
 **If your station is in Home Assistant, it works with `ws_core`.**
 
-It is tested heavily with Ecowitt, WeatherFlow Tempest, Ambient Weather, Davis Instruments, Netatmo, and local MQTT sensors. All you need are standard sensors like temperature, humidity, pressure, and wind.
+Works well with:
+
+| Station / source | How `ws_core` uses it |
+|---|---|
+| Ecowitt / Ambient Weather | GW-series, WS90, WH57 lightning, rain, wind, solar, UV and indoor sensors already exposed in HA |
+| WeatherFlow Tempest | Temperature, humidity, pressure, wind, rain, UV, illuminance and lightning entities |
+| Davis Instruments | WeatherLink entities for classic PWS measurements and Davis comfort indices |
+| Netatmo | Outdoor module plus optional rain and wind modules |
+| MQTT / REST / template-backed sensors | Any standard HA sensor entities with temperature, humidity, pressure, wind and rain |
+
+All you need are standard sensors like temperature, humidity, pressure, wind, and cumulative rain. The [Hardware Mapping Guide](docs/hardware_mapping.md) shows the usual entity patterns.
 
 ---
 
 ## ⚡ The 60-Second Quickstart
 
 ### Install via HACS (Recommended)
+
+[![Open your Home Assistant instance and add this repository to HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=kmich&repository=ha_ws_core&category=integration)
 
 1. Open **HACS** in your Home Assistant sidebar.
 2. Go to **Integrations** → ⋮ → **Custom repositories**.
@@ -55,6 +69,8 @@ Go to **Settings → Devices & Services → Add Integration** and search for "We
 * Temperature, Humidity, Absolute Pressure, Wind Speed, Wind Gust, Wind Direction, Rain Total
 
 That's it! After the wizard completes, 50+ derived sensors appear automatically. Enable additional features like fire danger or nowcasting via the **Configure** button on the integration.
+
+Not sure what to automate first? Start with the [Use Cases](docs/use_cases.md): rain alerts, irrigation skips, awning protection, frost warnings, and air-quality actions.
 
 ---
 

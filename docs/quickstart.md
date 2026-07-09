@@ -28,6 +28,8 @@ UV index, dew point, battery level, solar radiation (W/m²).
 
 ## Step 1: Install via HACS
 
+[![Open your Home Assistant instance and add this repository to HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=kmich&repository=ha_ws_core&category=integration)
+
 1. Open HACS in your Home Assistant sidebar
 2. Go to **Integrations** and click the three-dot menu in the top right
 3. Choose **Custom repositories**
@@ -158,6 +160,7 @@ feature is enabled.
 ## Next steps
 
 - [Sensors Reference](sensors.md) — complete list of all entities
+- [Use Cases](use_cases.md) — rain alerts, irrigation, awnings, frost, and AQI
 - [Dashboards](dashboards.md) — install the bundled dashboard in 2 minutes
 - [Blueprints](blueprints.md) — automation blueprints for frost, storm, and irrigation alerts
 - [Forecast Providers](forecast_providers.md) — change your NWP provider

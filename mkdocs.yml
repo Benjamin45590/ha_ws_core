@@ -58,6 +58,7 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Quickstart: quickstart.md
+  - Use Cases: use_cases.md
   - Sensors Reference: sensors.md
   - Forecast Providers: forecast_providers.md
   - Dashboards: dashboards.md
@@ -70,6 +71,7 @@ nav:
     - Nowcast: guides/nowcast.md
   - Migrating from Thermal Comfort: migrating_from_thermal_comfort.md
   - Troubleshooting: troubleshooting.md
+  - Launch Kit: launch_kit.md
   - Contributing: contributing.md
 
 extra:

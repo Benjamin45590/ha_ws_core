@@ -59,6 +59,19 @@ wind direction, cumulative rainfall. ws_core does the rest.
 ## Getting started
 
 See the [Quickstart](quickstart.md) for a 5-minute installation walkthrough.
+Then pick your first automation from [Use Cases](use_cases.md).
+
+## Which part should I try first?
+
+| If you care about... | Start with |
+|---|---|
+| Not getting caught in rain | Precipitation Nowcast and `sensor.ws_minutes_until_rain` |
+| Saving water | ET0 sensors and the Irrigation Rain Skip blueprint |
+| Protecting awnings or exterior blinds | High Wind Gusts blueprint |
+| Frost-sensitive plants or pipes | Frost risk sensors and Freeze Warning blueprint |
+| Fire season | FWI, FFDI, FFWI and Fire Danger Alert blueprint |
+| Heat safety | UTCI and WBGT comfort sensors |
+| Data trust | Station Diagnostics and data-quality score |
 
 ---
 
