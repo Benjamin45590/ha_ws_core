@@ -733,7 +733,7 @@
       "description": "Les capteurs suivants n'ont pas été mis à jour pendant le délai d'inactivité autorisé : {sensors}. Vérifiez que les capteurs de votre station météo sont en ligne et connecté."
     },
     "forecast_api_failures": {
-      "title": "Échecs de l'API de prévisions ({provider})",
+      "title": "Échecs de l'API de prévisions",
       "description": "L'API de prévisions ({provider}) a échoué {failures} fois consécutives. Les données de prévision peuvent être obsolètes. Vérifiez votre connexion Internet. L'intégration réessaiera automatiquement avec un backoff exponentiel."
     },
     "stuck_sensors": {
