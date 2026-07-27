@@ -1269,6 +1269,18 @@
       "wind_gust_max_24h": {
         "name": "Wind Gust Max (24h)"
       },
+      "temperature_high_year": {
+        "name": "Temperature High (Year)"
+      },
+      "temperature_low_year": {
+        "name": "Temperature Low (Year)"
+      },
+      "temperature_high_all_time": {
+        "name": "Temperature High (All-Time)"
+      },
+      "temperature_low_all_time": {
+        "name": "Temperature Low (All-Time)"
+      },
       "humidity_level": {
         "name": "Humidity Level",
         "state": {

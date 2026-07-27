@@ -460,7 +460,12 @@ from .const import (
     KEY_TEMP_AVG_24H,
     KEY_TEMP_DISPLAY,
     KEY_TEMP_HIGH_24H,
+    KEY_TEMP_HIGH_ALL_TIME,
+    KEY_TEMP_HIGH_YEAR,
     KEY_TEMP_LOW_24H,
+    KEY_TEMP_LOW_ALL_TIME,
+    KEY_TEMP_LOW_YEAR,
+    KEY_TEMP_YEAR_REF,
     KEY_THSW_INDEX,
     KEY_THUNDERSTORM_RISK,
     KEY_THW_INDEX,
@@ -787,6 +792,15 @@ class WSStationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._rain_this_year_mm: float = 0.0
         self._rain_this_year_key: str = ""  # "YYYY"
         self._rain_this_year_last_total: float | None = None
+
+        # Yearly / all-time temperature extremes (issue #124). Yearly resets
+        # when the current year no longer matches _temp_year_key; all-time
+        # never resets automatically.
+        self._temp_high_year: float | None = None
+        self._temp_low_year: float | None = None
+        self._temp_year_key: str = ""  # "YYYY"
+        self._temp_high_all_time: float | None = None
+        self._temp_low_all_time: float | None = None
 
         # v2.0 max rain rate over rolling 24h window
         self._rain_rate_history_24h: deque = deque()
@@ -1634,6 +1648,11 @@ class WSStationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if tc is not None and rh is not None and pressure_hpa_now is not None:
             data[KEY_SPECIFIC_HUMIDITY] = calculate_specific_humidity(float(tc), float(rh), float(pressure_hpa_now))
 
+        # Yearly / all-time temperature extremes (issue #124). Hooked into the
+        # raw reading before it feeds the 24h rolling window below, so these
+        # track every accepted reading rather than the 24h-windowed subset.
+        self._update_temp_year_all_time(data, tc)
+
         # 24h rolling stats
         if tc is not None:
             self._append_and_prune_24h(rt.temp_history_24h, now, float(tc))
@@ -1711,6 +1730,39 @@ class WSStationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 data[KEY_UTCI] = utci
 
         return dew_c
+
+    def _update_temp_year_all_time(self, data: dict, tc: float | None) -> None:
+        """Update yearly and all-time temperature high/low extremes (issue #124).
+
+        Yearly extremes reset the first time a reading arrives in a new
+        calendar year (detected via ``_temp_year_key``, exposed as the
+        ``year_ref`` attribute on the yearly sensors). All-time extremes never
+        reset automatically - they persist for the life of the config entry.
+        """
+        if tc is None:
+            return
+        temp = float(tc)
+
+        year_key = dt_util.now().strftime("%Y")
+        if year_key != self._temp_year_key:
+            self._temp_high_year = temp
+            self._temp_low_year = temp
+            self._temp_year_key = year_key
+        else:
+            if self._temp_high_year is None or temp > self._temp_high_year:
+                self._temp_high_year = temp
+            if self._temp_low_year is None or temp < self._temp_low_year:
+                self._temp_low_year = temp
+        data[KEY_TEMP_HIGH_YEAR] = round(self._temp_high_year, 1)
+        data[KEY_TEMP_LOW_YEAR] = round(self._temp_low_year, 1)
+        data[KEY_TEMP_YEAR_REF] = self._temp_year_key
+
+        if self._temp_high_all_time is None or temp > self._temp_high_all_time:
+            self._temp_high_all_time = temp
+        if self._temp_low_all_time is None or temp < self._temp_low_all_time:
+            self._temp_low_all_time = temp
+        data[KEY_TEMP_HIGH_ALL_TIME] = round(self._temp_high_all_time, 1)
+        data[KEY_TEMP_LOW_ALL_TIME] = round(self._temp_low_all_time, 1)
 
     def _compute_derived_pressure(
         self, data: dict, now: Any, tc: float | None, pressure_hpa: float | None, rh: float | None
@@ -3314,6 +3366,12 @@ class WSStationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "rain_this_year_mm": self._rain_this_year_mm,
             "rain_this_year_key": self._rain_this_year_key,
             "rain_this_year_last_total": self._rain_this_year_last_total,
+            # Yearly / all-time temperature extremes (issue #124)
+            "temp_high_year": self._temp_high_year,
+            "temp_low_year": self._temp_low_year,
+            "temp_year_key": self._temp_year_key,
+            "temp_high_all_time": self._temp_high_all_time,
+            "temp_low_all_time": self._temp_low_all_time,
             # v2.0 degree-day accumulators (season totals must survive restarts)
             "hdd_today": self._hdd_today,
             "hdd_today_date": self._hdd_today_date,
@@ -3424,6 +3482,22 @@ class WSStationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._rain_this_year_key = year_key
             lt = data.get("rain_this_year_last_total")
             self._rain_this_year_last_total = float(lt) if lt is not None else None
+
+        # Yearly / all-time temperature extremes (issue #124): restored
+        # unconditionally, even if the saved year_key is stale - the first
+        # reading processed by _update_temp_year_all_time compares the saved
+        # key against the current year and resets the yearly high/low itself
+        # if a year boundary was crossed while HA was stopped. All-time
+        # extremes are restored unconditionally and never reset.
+        th_year = data.get("temp_high_year")
+        self._temp_high_year = float(th_year) if th_year is not None else None
+        tl_year = data.get("temp_low_year")
+        self._temp_low_year = float(tl_year) if tl_year is not None else None
+        self._temp_year_key = data.get("temp_year_key") or ""
+        th_all = data.get("temp_high_all_time")
+        self._temp_high_all_time = float(th_all) if th_all is not None else None
+        tl_all = data.get("temp_low_all_time")
+        self._temp_low_all_time = float(tl_all) if tl_all is not None else None
 
         # v2.0 degree days: 'today' values continue only within the same day;
         # 'season' totals are restored unconditionally (their own reset logic,

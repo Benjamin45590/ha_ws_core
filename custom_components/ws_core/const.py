@@ -219,6 +219,16 @@ KEY_TEMP_LOW_24H = "temp_low_24h"
 KEY_TEMP_AVG_24H = "temp_avg_24h"
 KEY_WIND_GUST_MAX_24H = "wind_gust_max_24h"
 
+# Keys for YEARLY / ALL-TIME TEMPERATURE EXTREMES (issue #124)
+# Yearly resets automatically on Jan 1st (detected via KEY_TEMP_YEAR_REF, the
+# "YYYY" the running min/max was last computed for). All-time never resets
+# automatically; a manual reset service is a possible future addition.
+KEY_TEMP_HIGH_YEAR = "temp_high_year"
+KEY_TEMP_LOW_YEAR = "temp_low_year"
+KEY_TEMP_YEAR_REF = "temp_year_ref"
+KEY_TEMP_HIGH_ALL_TIME = "temp_high_all_time"
+KEY_TEMP_LOW_ALL_TIME = "temp_low_all_time"
+
 # Keys for DISPLAY/FORMAT SENSORS
 KEY_UV_LEVEL_DISPLAY = "uv_level_display"
 KEY_HUMIDITY_LEVEL_DISPLAY = "humidity_level_display"

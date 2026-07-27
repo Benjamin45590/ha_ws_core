@@ -48,6 +48,11 @@ def _coord():
     c._rain_this_year_mm = 0.0
     c._rain_this_year_key = ""
     c._rain_this_year_last_total = None
+    c._temp_high_year = None
+    c._temp_low_year = None
+    c._temp_year_key = ""
+    c._temp_high_all_time = None
+    c._temp_low_all_time = None
     c._hdd_today = 0.0
     c._hdd_today_date = ""
     c._hdd_today_samples = 0
@@ -162,3 +167,51 @@ class TestHistoryRoundTrip:
         # Season total carries across days (its own reset logic handles rollover).
         assert dst._chill_hours_season == 200.0
         assert dst._chill_hours_season_date == yesterday
+
+    def test_temp_year_all_time_roundtrip(self):
+        """Yearly/all-time temperature extremes (issue #124) survive a restart."""
+        src = _coord()
+        this_year = dt_util.now().strftime("%Y")
+        src._temp_high_year = 32.5
+        src._temp_low_year = -8.0
+        src._temp_year_key = this_year
+        src._temp_high_all_time = 41.0
+        src._temp_low_all_time = -19.5
+        blob = src._dump_history_state()
+
+        dst = _coord()
+        dst._restore_history_state(blob)
+        assert dst._temp_high_year == 32.5
+        assert dst._temp_low_year == -8.0
+        assert dst._temp_year_key == this_year
+        assert dst._temp_high_all_time == 41.0
+        assert dst._temp_low_all_time == -19.5
+
+    def test_temp_year_restored_even_when_stale_still_carries_value(self):
+        """A year_key from before Jan 1st is still restored as-is; the coordinator's
+
+        own rollover check (in _update_temp_year_all_time) is what resets it on the
+        first reading of the new year, not the restore step itself.
+        """
+        src = _coord()
+        src._temp_high_year = 30.0
+        src._temp_low_year = -10.0
+        src._temp_year_key = "2020"
+        src._temp_high_all_time = 35.0
+        src._temp_low_all_time = -15.0
+        blob = src._dump_history_state()
+
+        dst = _coord()
+        dst._restore_history_state(blob)
+        assert dst._temp_year_key == "2020"
+        assert dst._temp_high_year == 30.0
+        assert dst._temp_high_all_time == 35.0
+
+    def test_temp_all_time_empty_blob_is_none(self):
+        dst = _coord()
+        dst._restore_history_state({})
+        assert dst._temp_high_year is None
+        assert dst._temp_low_year is None
+        assert dst._temp_year_key == ""
+        assert dst._temp_high_all_time is None
+        assert dst._temp_low_all_time is None

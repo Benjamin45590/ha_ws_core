@@ -2,6 +2,16 @@
 
 All notable changes to Weather Station Core are documented here.
 
+## [2.6.3] - 2026-07-27
+
+### Added
+
+- **Yearly and all-time temperature extremes (issue #124):** four new sensors track temperature highs/lows beyond the existing rolling 24h window - `sensor.ws_temperature_high_year` / `sensor.ws_temperature_low_year` (reset automatically on January 1st, exposing a `year_ref` attribute so you can see which year the running extreme belongs to) and `sensor.ws_temperature_high_all_time` / `sensor.ws_temperature_low_all_time` (persist indefinitely - the record high/low since the station was set up, no automatic reset). All four hook into the same raw temperature pipeline that feeds the `_24h` sensors, are backed by `RestoreEntity` so they show their last value immediately on a Home Assistant restart, and their underlying extremes survive restarts via the existing history-persistence store.
+
+### Fixed
+
+- **French translation:** removed a stray `{provider}` placeholder from the `forecast_api_failures` repair title that didn't render (the description below it already includes the provider name). Thanks to @Benjamin45590 (#125).
+
 ## [2.6.2] - 2026-07-03
 
 ### Security

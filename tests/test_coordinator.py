@@ -13,6 +13,8 @@ from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+from homeassistant.util import dt as dt_util
+
 from custom_components.ws_core.const import (
     CONF_CLIMATE_REGION,
     CONF_ELEVATION_M,
@@ -29,6 +31,11 @@ from custom_components.ws_core.const import (
     KEY_NORM_WIND_GUST_MS,
     KEY_PACKAGE_OK,
     KEY_SEA_LEVEL_PRESSURE_HPA,
+    KEY_TEMP_HIGH_ALL_TIME,
+    KEY_TEMP_HIGH_YEAR,
+    KEY_TEMP_LOW_ALL_TIME,
+    KEY_TEMP_LOW_YEAR,
+    KEY_TEMP_YEAR_REF,
     KEY_WET_BULB_C,
     KEY_WIND_BEAUFORT,
     KEY_WIND_QUADRANT,
@@ -170,6 +177,11 @@ def _make_coordinator(
     coord._rain_this_year_mm = 0.0
     coord._rain_this_year_key = ""
     coord._rain_this_year_last_total = None
+    coord._temp_high_year = None
+    coord._temp_low_year = None
+    coord._temp_year_key = ""
+    coord._temp_high_all_time = None
+    coord._temp_low_all_time = None
     coord._solar_energy_today_whm2 = 0.0
     coord._solar_energy_date = ""
     coord._solar_energy_last_ts = None
@@ -308,6 +320,72 @@ class TestComputeDerivedTemperature:
         dew = coord._compute_derived_temperature(data, datetime.now(UTC), None, None, None)
         assert dew is None
         assert KEY_DEW_POINT_C not in data
+
+
+# ---------------------------------------------------------------------------
+# Tests: Yearly / All-Time Temperature Extremes (issue #124)
+# ---------------------------------------------------------------------------
+
+
+class TestTempYearAllTime:
+    def test_first_reading_seeds_year_and_all_time(self):
+        coord = _make_coordinator()
+        data = {}
+        coord._update_temp_year_all_time(data, 18.0)
+        assert data[KEY_TEMP_HIGH_YEAR] == 18.0
+        assert data[KEY_TEMP_LOW_YEAR] == 18.0
+        assert data[KEY_TEMP_HIGH_ALL_TIME] == 18.0
+        assert data[KEY_TEMP_LOW_ALL_TIME] == 18.0
+        assert data[KEY_TEMP_YEAR_REF] == coord._temp_year_key
+
+    def test_tracks_new_highs_and_lows_within_the_year(self):
+        coord = _make_coordinator()
+        for temp in (10.0, 25.0, -5.0, 12.0):
+            data = {}
+            coord._update_temp_year_all_time(data, temp)
+        assert data[KEY_TEMP_HIGH_YEAR] == 25.0
+        assert data[KEY_TEMP_LOW_YEAR] == -5.0
+        assert data[KEY_TEMP_HIGH_ALL_TIME] == 25.0
+        assert data[KEY_TEMP_LOW_ALL_TIME] == -5.0
+
+    def test_year_rollover_resets_yearly_but_not_all_time(self):
+        coord = _make_coordinator()
+        # Seed as if the running extremes belong to last year.
+        coord._temp_high_year = 30.0
+        coord._temp_low_year = -10.0
+        coord._temp_year_key = "2020"
+        coord._temp_high_all_time = 35.0
+        coord._temp_low_all_time = -15.0
+
+        data = {}
+        coord._update_temp_year_all_time(data, 5.0)
+
+        current_year = dt_util.now().strftime("%Y")
+        assert coord._temp_year_key == current_year
+        # Yearly high/low reset to the first reading of the new year.
+        assert data[KEY_TEMP_HIGH_YEAR] == 5.0
+        assert data[KEY_TEMP_LOW_YEAR] == 5.0
+        # All-time extremes are untouched by the year rollover.
+        assert data[KEY_TEMP_HIGH_ALL_TIME] == 35.0
+        assert data[KEY_TEMP_LOW_ALL_TIME] == -15.0
+
+    def test_all_time_never_resets_even_when_below_previous_low(self):
+        coord = _make_coordinator()
+        data = {}
+        coord._update_temp_year_all_time(data, 40.0)
+        coord._update_temp_year_all_time(data, -20.0)
+        # A milder reading afterwards must not erase the recorded extremes.
+        coord._update_temp_year_all_time(data, 15.0)
+        assert data[KEY_TEMP_HIGH_ALL_TIME] == 40.0
+        assert data[KEY_TEMP_LOW_ALL_TIME] == -20.0
+
+    def test_handles_none_gracefully(self):
+        coord = _make_coordinator()
+        data = {}
+        coord._update_temp_year_all_time(data, None)
+        assert data == {}
+        assert coord._temp_high_year is None
+        assert coord._temp_high_all_time is None
 
 
 # ---------------------------------------------------------------------------
