@@ -1301,7 +1301,20 @@
         "name": "Température moyenne (24h)"
       },
       "wind_gust_max_24h": {
-        "name": "Rafale max (24h)"
+        "name": "Rafale max (24h)"      
+      },
+      "temperature_high_year": {
+        "name": "Température max (Année)"
+      },
+      "temperature_low_year": {
+        "name": "Température min (Année)"
+      },
+      "temperature_high_all_time": {
+        "name": "Température max (record)"
+      },
+      "temperature_low_all_time": {
+        "name": "Température min (record)"
+
       },
       "humidity_level": {
         "name": "Niveau d'humidité",
