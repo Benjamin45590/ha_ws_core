@@ -199,6 +199,45 @@ class TestFetchVigicruesStationOptions:
         assert options[0]["label"] == "Auto (nearest station)"
 
     @pytest.mark.asyncio
+    async def test_http_206_is_treated_as_success_not_error(self):
+        """Regression test for issue #133.
+
+        Hub'Eau's referentiel/stations endpoint routinely answers HTTP 206
+        (Partial Content) instead of 200 when the result set doesn't include
+        every matching station. That must still populate the station list,
+        not fall back to auto-only.
+        """
+        from custom_components.ws_core.config_flow import _fetch_vigicrues_station_options
+
+        api_payload = {
+            "data": [
+                {
+                    "code_station": "W5200010",
+                    "libelle_station": "LA DURANCE A CADARACHE",
+                    "libelle_cours_eau": "La Durance",
+                },
+            ]
+        }
+
+        mock_resp = MagicMock()
+        mock_resp.status = 206
+        mock_resp.json = AsyncMock(return_value=api_payload)
+        mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
+        mock_resp.__aexit__ = AsyncMock(return_value=False)
+
+        mock_session = MagicMock()
+        mock_session.get.return_value = mock_resp
+        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_session.__aexit__ = AsyncMock(return_value=False)
+
+        with patch("aiohttp.ClientSession", return_value=mock_session):
+            options = await _fetch_vigicrues_station_options(43.3, 5.4)
+
+        assert len(options) == 2  # auto + 1 station, not auto-only
+        codes = [o["value"] for o in options[1:]]
+        assert "W5200010" in codes
+
+    @pytest.mark.asyncio
     async def test_returns_auto_option_only_on_timeout(self):
         """On network/timeout error, fallback to auto-only list."""
         import aiohttp

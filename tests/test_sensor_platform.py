@@ -60,13 +60,19 @@ def _make_temp_sensor(prefix="ws"):
 
 
 def test_fresh_install_entity_id_uses_prefix():
-    """Fresh installs must still get sensor.{prefix}_{key} via suggested_object_id."""
+    """Fresh installs must get sensor.{prefix}_{key}, not sensor.weather_station_{key}.
+
+    Regression test for issue #134: entity.entity_id must be set directly.
+    _attr_suggested_object_id is treated by Home Assistant as object_id_base,
+    which gets prefixed with the device name ("Weather Station") instead of
+    the configured prefix whenever has_entity_name=True.
+    """
     s = _make_temp_sensor(prefix="ws")
     # _slug_for_key maps the normalized temperature key to "temperature".
-    assert s._attr_suggested_object_id == "ws_temperature"
+    assert s.entity_id == "sensor.ws_temperature"
 
     s2 = _make_temp_sensor(prefix="home")
-    assert s2._attr_suggested_object_id == "home_temperature"
+    assert s2.entity_id == "sensor.home_temperature"
 
 
 def test_added_to_hass_does_not_revert_user_rename():

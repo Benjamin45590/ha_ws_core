@@ -740,3 +740,75 @@ class TestRollingWindows:
         accum = WSStationCoordinator._rain_accum_24h_from_totals(history)
         # Should count 0→1, 1→2, skip 2→0 (reset), 0→1 = total 3mm
         assert abs(accum - 3.0) < 0.1
+
+
+class TestRainRateWindow:
+    """Regression tests for issue #132 (rain rate sawtooth).
+
+    A single poll-cycle delta on a bucket-tip rain-total sensor spikes and
+    decays to zero every cycle because most cycles see no tip at all. Rate
+    must instead be averaged over a short sliding window so a steady drizzle
+    or downpour reads as a steady rate.
+    """
+
+    def test_single_tip_inside_one_poll_no_longer_spikes_to_extreme_rate(self):
+        from custom_components.ws_core.const import RAIN_RATE_WINDOW_H
+        from custom_components.ws_core.coordinator import WSStationCoordinator
+
+        history = deque()
+        now = datetime.now(UTC)
+        # 10 minutes of no-rain history, then a single 0.93mm bucket tip
+        # lands inside the latest 60s poll cycle. The old instantaneous
+        # dv/dt calculation would report 0.93mm / (60s/3600) = 56 mm/h from
+        # that single cycle alone (matching the exact figure in issue #132),
+        # then 0 mm/h on every subsequent tip-less cycle -- a sawtooth.
+        for i in range(10):
+            history.append((now - timedelta(minutes=10 - i), 10.0))
+        history.append((now, 10.93))
+        rate = WSStationCoordinator._rain_rate_from_totals_window(history, now, RAIN_RATE_WINDOW_H)
+        assert rate < 10.0, (
+            f"a single tip should be smoothed over the window, not read as the instantaneous 56 mm/h spike: got {rate}"
+        )
+
+    def test_steady_light_rain_reads_as_steady_rate_not_sawtooth(self):
+        """Repeated tips at a constant real-world rate should NOT oscillate cycle to cycle."""
+        from custom_components.ws_core.const import RAIN_RATE_WINDOW_H
+        from custom_components.ws_core.coordinator import WSStationCoordinator
+
+        history = deque()
+        now = datetime.now(UTC)
+        total = 0.0
+        rates = []
+        # One 60s poll per minute for 12 minutes; a 0.2mm tip lands every 3rd
+        # cycle (≈4mm/h average), all other cycles see no new tip at all.
+        for i in range(12):
+            ts = now - timedelta(minutes=12 - i)
+            if i % 3 == 0:
+                total += 0.2
+            history.append((ts, total))
+            rates.append(WSStationCoordinator._rain_rate_from_totals_window(history, ts, RAIN_RATE_WINDOW_H))
+        # Once the window has a few cycles of history, consecutive rate
+        # readings should be close to each other, not swinging between a
+        # spike and zero every cycle.
+        settled = rates[4:]
+        assert max(settled) - min(settled) < 5.0, f"rate oscillated across cycles: {settled}"
+
+    def test_no_rain_stays_zero(self):
+        from custom_components.ws_core.const import RAIN_RATE_WINDOW_H
+        from custom_components.ws_core.coordinator import WSStationCoordinator
+
+        history = deque()
+        now = datetime.now(UTC)
+        for i in range(5):
+            history.append((now - timedelta(minutes=5 - i), 10.0))
+        rate = WSStationCoordinator._rain_rate_from_totals_window(history, now, RAIN_RATE_WINDOW_H)
+        assert rate == 0.0
+
+    def test_fewer_than_two_samples_returns_zero(self):
+        from custom_components.ws_core.const import RAIN_RATE_WINDOW_H
+        from custom_components.ws_core.coordinator import WSStationCoordinator
+
+        now = datetime.now(UTC)
+        assert WSStationCoordinator._rain_rate_from_totals_window(deque(), now, RAIN_RATE_WINDOW_H) == 0.0
+        history = deque([(now, 1.0)])
+        assert WSStationCoordinator._rain_rate_from_totals_window(history, now, RAIN_RATE_WINDOW_H) == 0.0
