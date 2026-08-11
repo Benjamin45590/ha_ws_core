@@ -2185,9 +2185,7 @@ class WSStationOptionsFlowHandler(config_entries.OptionsFlow):
         # instead of default (issue #135: unclearable, unsaveable fields).
         fields = {
             (
-                vol.Optional(k, description={"suggested_value": defaults[k]})
-                if k in defaults
-                else vol.Optional(k)
+                vol.Optional(k, description={"suggested_value": defaults[k]}) if k in defaults else vol.Optional(k)
             ): _ENTITY_SELECTOR
             for k in OPTIONAL_SOURCES
         }
