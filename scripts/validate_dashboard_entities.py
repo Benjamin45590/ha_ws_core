@@ -4,8 +4,8 @@
 Derives the authoritative entity list from:
   - sensor.py  (_slug_for_key overrides dict)
   - switch.py  (CONF_ENABLE_* constants)
-  - binary_sensor.py (suggested_object_id slugs)
-  - weather.py (suggested_object_id slug)
+  - binary_sensor.py (entity_id slugs)
+  - weather.py (entity_id slug)
   - A small set of well-known external entities
 
 Usage:
@@ -55,15 +55,15 @@ def _switch_entity_ids(prefix: str = "ws") -> set[str]:
 
 
 def _binary_sensor_entity_ids(prefix: str = "ws") -> set[str]:
-    """Read suggested_object_id slugs from binary_sensor.py."""
+    """Read entity_id slugs from binary_sensor.py."""
     bs_py = (ROOT / "custom_components/ws_core/binary_sensor.py").read_text(encoding="utf-8")
-    # Pattern: f"{prefix}_package_ok" etc.
-    slugs = re.findall(r'f"\{prefix\}_([^"]+)"', bs_py)
+    # Pattern: self.entity_id = f"binary_sensor.{prefix}_package_ok" etc.
+    slugs = re.findall(r'f"binary_sensor\.\{prefix\}_([^"]+)"', bs_py)
     return {f"binary_sensor.{prefix}_{slug}" for slug in slugs}
 
 
 def _weather_entity_ids(prefix: str = "ws") -> set[str]:
-    """Weather platform uses suggested_object_id = prefix → weather.{prefix}."""
+    """Weather platform sets entity_id = f"weather.{prefix}"."""
     return {f"weather.{prefix}"}
 
 
@@ -74,7 +74,7 @@ KNOWN_EXTERNAL: set[str] = {
     "input_text.weather_station_location",
     "input_text.weather_lightning_sensor",
     "sensor.iopool_lagonisi_temperature",
-    # WSRiverSensor (dynamic, auto-detect): suggested_object_id = "{prefix}_river_level"
+    # WSRiverSensor (dynamic, auto-detect): entity_id = "{prefix}_river_level"
     "sensor.ws_river_level",
 }
 
