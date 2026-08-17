@@ -2,6 +2,12 @@
 
 All notable changes to Weather Station Core are documented here.
 
+## [2.6.7] - 2026-08-17
+
+### Fixed
+
+- **Altitude sensors showed five decimal places (issue #137):** Cloud Base and Freezing Level are stored internally in metres and converted to the user's display unit (feet, if configured), but neither had a `suggested_display_precision`, so Home Assistant showed the raw converted float - e.g. `1234.56789 ft` instead of a clean whole number. Both now round to 0 decimal places for display, matching the other altitude-based sensors.
+
 ## [2.6.6] - 2026-08-11
 
 ### Fixed
