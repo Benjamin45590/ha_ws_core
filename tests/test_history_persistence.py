@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import sys
+from collections import deque
 from datetime import timedelta
 from unittest.mock import patch
 
@@ -80,6 +81,8 @@ def _coord():
     c._gdd_season_key = ""
     c._solar_energy_today_whm2 = 0.0
     c._solar_energy_date = ""
+    # v2.0 max rain rate over rolling 24h window (issue #139)
+    c._rain_rate_history_24h = deque()
     return c
 
 
@@ -93,6 +96,7 @@ class TestHistoryRoundTrip:
             src.runtime.temp_history_24h.append((ts, 20.0 + i))
             src.runtime.gust_history_24h.append((ts, 5.0 + i))
             src.runtime.rain_total_history_24h.append((ts, 100.0 + i))
+            src._rain_rate_history_24h.append((ts, 2.0 + i))
         src.runtime.pressure_history.extend([1010.0, 1011.0, 1012.0])
         src.runtime.pressure_history_ts = now
         src._rain_today_mm = 12.5
@@ -112,6 +116,7 @@ class TestHistoryRoundTrip:
 
         assert len(dst.runtime.temp_history_24h) == 3
         assert [round(v, 1) for _, v in dst.runtime.temp_history_24h] == [20.0, 21.0, 22.0]
+        assert [round(v, 1) for _, v in dst._rain_rate_history_24h] == [2.0, 3.0, 4.0]
         assert list(dst.runtime.pressure_history) == [1010.0, 1011.0, 1012.0]
         assert dst._rain_today_mm == 12.5
         assert dst._rain_today_last_total == 137.0
@@ -155,6 +160,36 @@ class TestHistoryRoundTrip:
         dst._restore_history_state(None)
         assert dst._rain_today_mm == 0.0
         assert len(dst.runtime.temp_history_24h) == 0
+        assert len(dst._rain_rate_history_24h) == 0
+
+    def test_rain_rate_max_24h_survives_restart(self):
+        """Regression test for issue #139: rain rate max 24h reset to zero on
+        every HA restart because its rolling-window deque lived only in memory
+        and was never included in the history store's dump/restore pair."""
+        src = _coord()
+        now = dt_util.utcnow()
+        # A rain burst peaked at 45 mm/h an hour ago; current rate has since
+        # dropped back to near zero.
+        src._rain_rate_history_24h.append((now - timedelta(hours=1), 45.0))
+        src._rain_rate_history_24h.append((now - timedelta(minutes=1), 0.2))
+        blob = src._dump_history_state()
+
+        dst = _coord()
+        dst._restore_history_state(blob)
+        rates = [v for _, v in dst._rain_rate_history_24h]
+        assert max(rates) == 45.0
+
+    def test_rain_rate_history_pruned_on_restore(self):
+        src = _coord()
+        now = dt_util.utcnow()
+        src._rain_rate_history_24h.append((now - timedelta(hours=30), 60.0))  # stale peak
+        src._rain_rate_history_24h.append((now - timedelta(hours=1), 5.0))
+        blob = src._dump_history_state()
+
+        dst = _coord()
+        dst._restore_history_state(blob)
+        rates = [v for _, v in dst._rain_rate_history_24h]
+        assert rates == [5.0]  # the 30h-old peak is outside the window
 
     def test_corrupt_entries_skipped(self):
         dst = _coord()
