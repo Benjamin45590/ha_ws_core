@@ -2,6 +2,12 @@
 
 All notable changes to Weather Station Core are documented here.
 
+## [2.6.8] - 2026-08-23
+
+### Fixed
+
+- **Rain Rate Max (24h) reset to zero on every HA restart (issue #139):** the rolling 24-hour rain-rate-max window is tracked in a plain in-memory deque, separate from the runtime history object that the integration already persists across restarts (used for the 24h temperature, gust, and rain-total windows). Because this deque was missing from that persistence pair entirely, it always started empty after a restart, so the very first coordinator update replaced the sensor's restored display value with a fresh single-sample "max" - effectively whatever the current rain rate happened to be, which reads as a reset to zero if it isn't actively raining. It's now saved and restored with the same 24h pruning as the other rolling windows. Thanks to @jake404 for the report (#139).
+
 ## [2.6.7] - 2026-08-17
 
 ### Fixed
