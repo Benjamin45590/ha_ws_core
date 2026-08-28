@@ -25,7 +25,7 @@ views:
       # ── Headline ────────────────────────────────────────────────
       - type: grid
         cards:
-          - type: custom:mushroom-weather-card
+          - type: custom:mushroom-weather-info-card
             entity: weather.ws
             show_current: true
             show_forecast: false
