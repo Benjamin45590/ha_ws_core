@@ -2,6 +2,12 @@
 
 All notable changes to Weather Station Core are documented here.
 
+## [2.6.9] - 2026-08-28
+
+### Fixed
+
+- **Mobile dashboard: `mushroom-weather-card` typo (follow-up to #82):** the 2.6.7-era fix that corrected `custom:mushroom-weather-card` to the real card type, `custom:mushroom-weather-info-card`, only touched `ws_core_dashboard.yaml` and missed the identical typo in `ws_core_dashboard_mobile.yaml`. Anyone using the mobile dashboard still hit a `Custom element doesn't exist: mushroom-weather-card` configuration error. Both dashboard files now use the correct card type.
+
 ## [2.6.8] - 2026-08-23
 
 ### Fixed
