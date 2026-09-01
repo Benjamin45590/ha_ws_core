@@ -2,6 +2,19 @@
 
 All notable changes to Weather Station Core are documented here.
 
+## [2.7.0] - 2026-09-01
+
+### Added
+
+- **Adaptive Sensor Calibration (opt-in, off by default):** a new `sensor.ws_auto_calibration` feature that learns a slow bias estimate against the same regional forecast reference point already used for neighbor QC, and - once confident (roughly 10 days of hourly samples) and the bias persistently clears a noise deadband - nudges the existing `cal_temp_c`/`cal_humidity`/`cal_pressure_hpa` calibration offsets by a small, bounded amount at most once per day. Never overshoots the learned bias, and is fully reversible by turning the feature off or editing the calibration numbers by hand at any time. Enable under **Configure → Features → Adaptive Sensor Calibration**.
+- **Historical Climate Normals (opt-in, off by default):** `sensor.ws_temperature_anomaly_normal` and `sensor.ws_rain_anomaly_normal` compare today against the long-term historical average for *this specific calendar day* at your location (~10 years of Open-Meteo archive/ERA5 data, one request, refreshed monthly) - distinct from the existing `_anomaly_30d`/`_90d` sensors, which compare against the station's own recent rolling average. Also adds `sensor.ws_temperature_high_normal`, `_low_normal`, and `sensor.ws_rain_normal`. Enable under **Configure → Features → Historical Climate Normals**.
+- **Snow (opt-in, off by default):** since no station-agnostic snow gauge exists, `sensor.ws_snow_phase` and `binary_sensor.ws_snow_falling` estimate precipitation phase (rain/sleet/snow) from wet-bulb temperature, and `sensor.ws_snow_rate` plus day/month/year accumulators (`sensor.ws_snow_today`/`_this_month`/`_this_year`) estimate snow accumulation from your existing rain rate via a temperature-dependent snow-to-liquid ratio. Heuristic, not a measurement - never touches the existing rain sensors. Follows the same metric/imperial unit preference as rain (cm/in). Enable under **Configure → Features → Snow**.
+- **Storm/event log on every dashboard:** the "Recent Weather Events" logbook card (rain start/stop, frost/thaw, lightning) was only on the full `ws_core_dashboard.yaml`; it's now on the vanilla and mobile dashboards too, and the window was extended from 24h to 72h everywhere.
+
+### Fixed
+
+- **Opt-in features enabled during initial setup could stay inactive until Configure was opened once:** the initial setup wizard writes every `enable_*` toggle into the config entry's `data`, but several per-cycle checks in the coordinator (e.g. soil sensors, calibration offsets, alert thresholds) only ever looked at the entry's `options`, which starts empty until the Configure dialog is opened and saved for the first time. The affected sensor entities existed but sat unavailable in the meantime. `entry_options` is now a proper merge of `data` (base) and `options` (override) from the moment the integration starts, so a feature enabled in the initial wizard works immediately.
+
 ## [2.6.9] - 2026-08-28
 
 ### Fixed
