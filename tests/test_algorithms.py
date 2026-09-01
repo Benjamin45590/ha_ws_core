@@ -37,9 +37,11 @@ from custom_components.ws_core.algorithms import (
     calculate_wbgt_simplified,
     calculate_wet_bulb,
     calculate_wind_chill,
+    classify_precip_phase,
     clearness_to_cloud_cover,
     compute_fwi,
     direction_to_quadrant,
+    estimate_snowfall_cm,
     et0_hargreaves,
     et0_penman_monteith,
     fog_probability,
@@ -47,6 +49,7 @@ from custom_components.ws_core.algorithms import (
     pollen_level,
     pollen_overall,
     pressure_trend_display,
+    snow_liquid_ratio,
     uv_burn_time_minutes,
     uv_level,
     wind_speed_to_beaufort,
@@ -891,6 +894,61 @@ class TestAirDensity:
         rho_low = calculate_air_density(15.0, 900.0)
         rho_high = calculate_air_density(15.0, 1050.0)
         assert rho_high > rho_low
+
+
+class TestClassifyPrecipPhase:
+    def test_cold_wet_bulb_is_snow(self):
+        assert classify_precip_phase(-5.0) == "snow"
+
+    def test_at_snow_threshold_is_snow(self):
+        assert classify_precip_phase(-0.5) == "snow"
+
+    def test_warm_wet_bulb_is_rain(self):
+        assert classify_precip_phase(10.0) == "rain"
+
+    def test_at_rain_threshold_is_rain(self):
+        assert classify_precip_phase(1.5) == "rain"
+
+    def test_between_thresholds_is_sleet(self):
+        assert classify_precip_phase(0.5) == "sleet"
+
+
+class TestSnowLiquidRatio:
+    def test_at_or_above_warmest_point_returns_warmest_ratio(self):
+        assert snow_liquid_ratio(5.0) == 8.0
+        assert snow_liquid_ratio(2.0) == 8.0
+
+    def test_at_or_below_coldest_point_returns_coldest_ratio(self):
+        assert snow_liquid_ratio(-25.0) == 20.0
+        assert snow_liquid_ratio(-18.0) == 20.0
+
+    def test_classic_ten_to_one_at_minus_one(self):
+        assert snow_liquid_ratio(-1.0) == 10.0
+
+    def test_colder_gives_higher_ratio(self):
+        assert snow_liquid_ratio(-15.0) > snow_liquid_ratio(-2.0) > snow_liquid_ratio(0.0)
+
+    def test_interpolates_between_reference_points(self):
+        # Halfway between (-1.0, 10.0) and (-9.0, 15.0) -> ~12.5
+        ratio = snow_liquid_ratio(-5.0)
+        assert 10.0 < ratio < 15.0
+
+
+class TestEstimateSnowfallCm:
+    def test_zero_liquid_gives_zero_snow(self):
+        assert estimate_snowfall_cm(0.0, -5.0) == 0.0
+
+    def test_negative_liquid_gives_zero_snow(self):
+        assert estimate_snowfall_cm(-1.0, -5.0) == 0.0
+
+    def test_ten_to_one_ratio_at_minus_one_degree(self):
+        # 5mm liquid at -1C (SLR 10:1) -> 50mm = 5cm of snow
+        assert estimate_snowfall_cm(5.0, -1.0) == 5.0
+
+    def test_colder_temp_yields_more_snow_for_same_liquid(self):
+        warm = estimate_snowfall_cm(5.0, -1.0)
+        cold = estimate_snowfall_cm(5.0, -15.0)
+        assert cold > warm
 
 
 if __name__ == "__main__":

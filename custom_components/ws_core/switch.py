@@ -42,6 +42,7 @@ from .const import (
     CONF_ENABLE_POLLEN,
     CONF_ENABLE_PWSWEATHER,
     CONF_ENABLE_SEA_TEMP,
+    CONF_ENABLE_SNOW,
     CONF_ENABLE_SOLAR_FORECAST,
     CONF_ENABLE_THUNDERSTORM,
     CONF_ENABLE_VIGICRUES,
@@ -74,6 +75,7 @@ from .const import (
     DEFAULT_ENABLE_POLLEN,
     DEFAULT_ENABLE_PWSWEATHER,
     DEFAULT_ENABLE_SEA_TEMP,
+    DEFAULT_ENABLE_SNOW,
     DEFAULT_ENABLE_SOLAR_FORECAST,
     DEFAULT_ENABLE_THUNDERSTORM,
     DEFAULT_ENABLE_VIGICRUES,
@@ -309,6 +311,18 @@ FEATURE_SWITCHES: tuple[WSFeatureDesc, ...] = (
             "(Open-Meteo archive/ERA5, one request, refreshed monthly) and "
             "compares today against the long-term normal for this specific "
             "calendar day - not just your station's own recent average."
+        ),
+    ),
+    WSFeatureDesc(
+        conf_key=CONF_ENABLE_SNOW,
+        default=DEFAULT_ENABLE_SNOW,
+        name="Feature: Snow",
+        icon="mdi:snowflake",
+        description=(
+            "Estimates precipitation phase (rain/sleet/snow) from wet-bulb "
+            "temperature and estimated snow accumulation from your existing "
+            "rain rate - no snow gauge required, and no station-agnostic one "
+            "exists. Heuristic, not a measurement."
         ),
     ),
     # v1.8.4 (issue #20) — inverted: ON means notifications enabled (suppress=False)

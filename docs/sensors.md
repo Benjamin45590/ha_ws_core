@@ -318,6 +318,27 @@ Requires: soil moisture or soil temperature source sensors mapped in Configure �
 
 ---
 
+## Feature: Snow (`enable_snow`)
+
+Off by default. No station-agnostic snow gauge exists, so this is a heuristic
+estimate from temperature, humidity, and your existing rain rate - not a
+measurement. Precipitation phase is classified from wet-bulb temperature;
+snow accumulation converts the liquid-equivalent rain rate via a
+temperature-dependent snow-to-liquid ratio (colder = fluffier, higher ratio).
+Never touches the existing rain sensors - it's a fully separate, additive
+estimate.
+
+| Entity ID | Unit | State Class | Description |
+|---|---|---|---|
+| `sensor.ws_snow_phase` | — | — | `snow` / `sleet` / `rain` / `none` |
+| `binary_sensor.ws_snow_falling` | — | — | On when the phase is `snow` |
+| `sensor.ws_snow_rate` | cm/h (or in/h) | measurement | Estimated current snowfall rate |
+| `sensor.ws_snow_today` | cm (or in) | total_increasing | Estimated new snow today, resets at local midnight |
+| `sensor.ws_snow_this_month` | cm (or in) | total_increasing | Resets on the 1st |
+| `sensor.ws_snow_this_year` | cm (or in) | total_increasing | Resets Jan 1st |
+
+---
+
 ## Optional: Network Uploads
 
 Each upload target is independently enabled. Each produces a status sensor.

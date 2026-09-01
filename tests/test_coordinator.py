@@ -260,6 +260,16 @@ def _make_coordinator(
     coord._alert_debounce_clear: dict = {}
     coord._alert_active: dict = {}
 
+    # v2.7 snow (opt-in)
+    coord.snow_enabled = False
+    coord._snow_last_calc_ts = None
+    coord._snow_today_cm = 0.0
+    coord._snow_today_date = ""
+    coord._snow_this_month_cm = 0.0
+    coord._snow_this_month_key = ""
+    coord._snow_this_year_cm = 0.0
+    coord._snow_this_year_key = ""
+
     return coord
 
 
@@ -812,3 +822,207 @@ class TestRainRateWindow:
         assert WSStationCoordinator._rain_rate_from_totals_window(deque(), now, RAIN_RATE_WINDOW_H) == 0.0
         history = deque([(now, 1.0)])
         assert WSStationCoordinator._rain_rate_from_totals_window(history, now, RAIN_RATE_WINDOW_H) == 0.0
+
+
+class TestEntryOptionsMerge:
+    """A freshly created config entry has enable_* toggles in entry.data only -
+    entry.options starts as {} and is only populated once the user opens
+    Configure and saves (see OptionsFlow.async_create_entry). Per-cycle gates
+    that read self.entry_options.get(CONF_ENABLE_X, DEFAULT) directly (e.g.
+    _compute_soil) must still see a toggle the user enabled in the initial
+    wizard - not silently fall back to DEFAULT until Configure is opened once.
+    """
+
+    def _construct(self, entry_data: dict, entry_options: dict | None):
+        """Run the real WSStationCoordinator.__init__ (not the bypass pattern
+        used elsewhere in this file), stubbing out only the DataUpdateCoordinator
+        base class's __init__ (which needs real HA event-loop plumbing a
+        MagicMock hass can't satisfy) so the merge logic under test actually runs.
+        """
+        from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+
+        from custom_components.ws_core.coordinator import WSStationCoordinator
+
+        hass = MagicMock()
+        with patch.object(DataUpdateCoordinator, "__init__", lambda self, *a, **kw: None):
+            return WSStationCoordinator(hass, entry_data, entry_options)
+
+    def test_options_empty_falls_back_to_data(self):
+        from custom_components.ws_core.const import CONF_ENABLE_SOIL
+
+        coord = self._construct({CONF_ENABLE_SOIL: True, "entry_id": "abc"}, {})
+        assert coord.entry_options.get(CONF_ENABLE_SOIL) is True
+
+    def test_options_none_falls_back_to_data(self):
+        """entry.options can also arrive as None (mirrors WSStationCoordinator's
+        own `entry_options: dict | None = None` default)."""
+        from custom_components.ws_core.const import CONF_ENABLE_SOIL
+
+        coord = self._construct({CONF_ENABLE_SOIL: True, "entry_id": "abc"}, None)
+        assert coord.entry_options.get(CONF_ENABLE_SOIL) is True
+
+    def test_options_override_data_once_configure_is_saved(self):
+        """After the user opens Configure and saves, entry.options should win -
+        this is the existing, already-correct behaviour the fix must preserve.
+        """
+        from custom_components.ws_core.const import CONF_ENABLE_SOIL
+
+        coord = self._construct(
+            {CONF_ENABLE_SOIL: True, "entry_id": "abc"},
+            {CONF_ENABLE_SOIL: False},
+        )
+        assert coord.entry_options.get(CONF_ENABLE_SOIL) is False
+
+    def test_soil_toggle_enabled_only_in_data_computes_on_first_cycle(self):
+        """The actual user-visible regression: _compute_soil (and every other
+        per-cycle gate with this shape) must produce a value on the very first
+        cycle of a freshly created entry, not sit unavailable until Configure
+        is opened once.
+        """
+        from custom_components.ws_core.const import (
+            CONF_ENABLE_SOIL,
+            KEY_ET0_DAILY_MM,
+            KEY_IRRIGATION_NEED,
+            KEY_RAIN_TODAY_MM,
+            KEY_SOIL_MOISTURE,
+        )
+
+        coord = self._construct({CONF_ENABLE_SOIL: True, "entry_id": "abc"}, {})
+        data = {KEY_SOIL_MOISTURE: 25.0, KEY_ET0_DAILY_MM: 3.0, KEY_RAIN_TODAY_MM: 0.0}
+        coord._compute_soil(data)
+        assert KEY_IRRIGATION_NEED in data  # not skipped by the enable_soil gate
+
+
+class TestComputeSnow:
+    """_compute_snow (v2.7, opt-in): precipitation phase + estimated snow
+    accumulation, integrated locally from the smoothed liquid rain rate.
+    """
+
+    def _data(self, temp_c=-5.0, humidity=90.0, rain_rate=2.0):
+        from custom_components.ws_core.const import (
+            KEY_NORM_HUMIDITY,
+            KEY_NORM_TEMP_C,
+            KEY_RAIN_RATE_FILT,
+        )
+
+        return {
+            KEY_NORM_TEMP_C: temp_c,
+            KEY_NORM_HUMIDITY: humidity,
+            KEY_RAIN_RATE_FILT: rain_rate,
+        }
+
+    def test_disabled_is_a_no_op(self):
+        from custom_components.ws_core.const import KEY_SNOW_PHASE
+
+        coord = _make_coordinator()
+        coord.snow_enabled = False
+        data = self._data()
+        coord._compute_snow(data, dt_util.utcnow())
+        assert KEY_SNOW_PHASE not in data
+
+    def test_missing_temp_or_humidity_skips(self):
+        from custom_components.ws_core.const import (
+            KEY_NORM_HUMIDITY,
+            KEY_NORM_TEMP_C,
+            KEY_RAIN_RATE_FILT,
+            KEY_SNOW_PHASE,
+        )
+
+        coord = _make_coordinator()
+        coord.snow_enabled = True
+        data = {KEY_NORM_TEMP_C: None, KEY_NORM_HUMIDITY: 90.0, KEY_RAIN_RATE_FILT: 2.0}
+        coord._compute_snow(data, dt_util.utcnow())
+        assert KEY_SNOW_PHASE not in data
+
+    def test_no_precip_gives_phase_none(self):
+        from custom_components.ws_core.const import KEY_SNOW_FALLING, KEY_SNOW_PHASE
+
+        coord = _make_coordinator()
+        coord.snow_enabled = True
+        data = self._data(rain_rate=0.0)
+        coord._compute_snow(data, dt_util.utcnow())
+        assert data[KEY_SNOW_PHASE] == "none"
+        assert data[KEY_SNOW_FALLING] is False
+
+    def test_warm_precip_gives_phase_rain(self):
+        from custom_components.ws_core.const import KEY_SNOW_FALLING, KEY_SNOW_PHASE
+
+        coord = _make_coordinator()
+        coord.snow_enabled = True
+        data = self._data(temp_c=15.0, humidity=60.0, rain_rate=3.0)
+        coord._compute_snow(data, dt_util.utcnow())
+        assert data[KEY_SNOW_PHASE] == "rain"
+        assert data[KEY_SNOW_FALLING] is False
+
+    def test_cold_precip_gives_phase_snow_and_falling(self):
+        from custom_components.ws_core.const import KEY_SNOW_FALLING, KEY_SNOW_PHASE, KEY_SNOW_RATE_CM_H
+
+        coord = _make_coordinator()
+        coord.snow_enabled = True
+        data = self._data(temp_c=-5.0, humidity=90.0, rain_rate=2.0)
+        coord._compute_snow(data, dt_util.utcnow())
+        assert data[KEY_SNOW_PHASE] == "snow"
+        assert data[KEY_SNOW_FALLING] is True
+        assert data[KEY_SNOW_RATE_CM_H] > 0.0
+
+    def test_first_call_accumulates_nothing_no_prior_timestamp(self):
+        from custom_components.ws_core.const import KEY_SNOW_TODAY_CM
+
+        coord = _make_coordinator()
+        coord.snow_enabled = True
+        data = self._data()
+        coord._compute_snow(data, dt_util.utcnow())
+        # No elapsed time is known on the very first cycle - nothing to integrate yet.
+        assert data[KEY_SNOW_TODAY_CM] == 0.0
+
+    def test_second_call_accumulates_over_elapsed_time(self):
+        from custom_components.ws_core.const import KEY_SNOW_TODAY_CM
+
+        coord = _make_coordinator()
+        coord.snow_enabled = True
+        t0 = dt_util.utcnow()
+        coord._compute_snow(self._data(), t0)
+        t1 = t0 + timedelta(minutes=10)
+        data2 = self._data()
+        coord._compute_snow(data2, t1)
+        assert data2[KEY_SNOW_TODAY_CM] > 0.0
+        # Same amount should also land in the month/year accumulators.
+        from custom_components.ws_core.const import KEY_SNOW_THIS_MONTH_CM, KEY_SNOW_THIS_YEAR_CM
+
+        assert data2[KEY_SNOW_THIS_MONTH_CM] == data2[KEY_SNOW_TODAY_CM]
+        assert data2[KEY_SNOW_THIS_YEAR_CM] == data2[KEY_SNOW_TODAY_CM]
+
+    def test_a_long_gap_is_capped_not_fully_attributed(self):
+        from custom_components.ws_core.const import KEY_SNOW_TODAY_CM
+
+        coord = _make_coordinator()
+        coord.snow_enabled = True
+        t0 = dt_util.utcnow()
+        coord._compute_snow(self._data(), t0)
+        # A 6h gap (e.g. HA was stopped) must be capped, not attributed in full.
+        t1 = t0 + timedelta(hours=6)
+        data2 = self._data()
+        coord._compute_snow(data2, t1)
+        uncapped_estimate = 2.0 * 6.0  # rain_rate(mm/h) * hours, before SLR
+        assert data2[KEY_SNOW_TODAY_CM] < uncapped_estimate
+
+    def test_day_rollover_resets_today_but_not_month_or_year(self):
+        from custom_components.ws_core.const import (
+            KEY_SNOW_THIS_MONTH_CM,
+            KEY_SNOW_THIS_YEAR_CM,
+            KEY_SNOW_TODAY_CM,
+        )
+
+        coord = _make_coordinator()
+        coord.snow_enabled = True
+        coord._snow_today_cm = 5.0
+        coord._snow_today_date = "2000-01-01"  # deliberately stale
+        coord._snow_this_month_cm = 12.0
+        coord._snow_this_month_key = dt_util.now().strftime("%Y-%m")
+        coord._snow_this_year_cm = 40.0
+        coord._snow_this_year_key = dt_util.now().strftime("%Y")
+        data = self._data(rain_rate=0.0)  # no new snow this cycle
+        coord._compute_snow(data, dt_util.utcnow())
+        assert data[KEY_SNOW_TODAY_CM] == 0.0  # rolled over to a new day
+        assert data[KEY_SNOW_THIS_MONTH_CM] == 12.0  # untouched
+        assert data[KEY_SNOW_THIS_YEAR_CM] == 40.0  # untouched

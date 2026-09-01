@@ -46,6 +46,8 @@ from .const import (
     CONF_ENABLE_POLLEN,
     CONF_ENABLE_PWSWEATHER,
     CONF_ENABLE_SEA_TEMP,
+    # v2.7
+    CONF_ENABLE_SNOW,
     # v2.1
     CONF_ENABLE_SOIL,
     # v0.9.0
@@ -219,6 +221,11 @@ from .const import (
     KEY_SENSOR_QUALITY_FLAGS,
     KEY_SENSOR_SPIKE,
     KEY_SENSOR_STUCK,
+    KEY_SNOW_PHASE,
+    KEY_SNOW_RATE_CM_H,
+    KEY_SNOW_THIS_MONTH_CM,
+    KEY_SNOW_THIS_YEAR_CM,
+    KEY_SNOW_TODAY_CM,
     KEY_SOIL_MOISTURE,
     KEY_SOIL_MOISTURE_DEFICIT,
     KEY_SOIL_TEMP_C,
@@ -1321,6 +1328,61 @@ SENSORS: list[WSSensorDescription] = [
         native_unit="mm/h",
         state_class=SensorStateClass.MEASUREMENT,
         unit_group="rain_rate",
+    ),
+    # v2.7 — Snow (opt-in): precipitation phase + estimated accumulation.
+    # Heuristic estimate, not a measurement - see algorithms.py.
+    WSSensorDescription(
+        key=KEY_SNOW_PHASE,
+        translation_key="snow_phase",
+        name="WS Precipitation Phase",
+        icon="mdi:weather-snowy-rainy",
+        device_class=SensorDeviceClass.ENUM,
+        options=["snow", "sleet", "rain", "none"],
+        native_unit=None,
+        state_class=None,
+    ),
+    WSSensorDescription(
+        key=KEY_SNOW_RATE_CM_H,
+        translation_key="snow_rate",
+        name="WS Snow Rate",
+        icon="mdi:snowflake",
+        native_unit="cm/h",
+        state_class=SensorStateClass.MEASUREMENT,
+        unit_group="snow_rate",
+        suggested_display_precision=1,
+    ),
+    WSSensorDescription(
+        key=KEY_SNOW_TODAY_CM,
+        translation_key="snow_today",
+        name="WS Snow Today",
+        icon="mdi:snowflake",
+        device_class=SensorDeviceClass.PRECIPITATION,
+        native_unit="cm",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        unit_group="snow",
+        suggested_display_precision=1,
+    ),
+    WSSensorDescription(
+        key=KEY_SNOW_THIS_MONTH_CM,
+        translation_key="snow_this_month",
+        name="WS Snow This Month",
+        icon="mdi:calendar-month",
+        device_class=SensorDeviceClass.PRECIPITATION,
+        native_unit="cm",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        unit_group="snow",
+        suggested_display_precision=1,
+    ),
+    WSSensorDescription(
+        key=KEY_SNOW_THIS_YEAR_CM,
+        translation_key="snow_this_year",
+        name="WS Snow This Year",
+        icon="mdi:calendar",
+        device_class=SensorDeviceClass.PRECIPITATION,
+        native_unit="cm",
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        unit_group="snow",
+        suggested_display_precision=1,
     ),
     WSSensorDescription(
         key=KEY_PRESSURE_TREND_DISPLAY,
@@ -2656,6 +2718,12 @@ _FEATURE_TOGGLE_MAP: dict[str, str] = {
     KEY_INDOOR_HUMIDITY_DELTA: CONF_ENABLE_INDOOR,
     KEY_INDOOR_COMFORT: CONF_ENABLE_INDOOR,
     # v2.1 - soil sensor group
+    # v2.7 - snow (opt-in)
+    KEY_SNOW_PHASE: CONF_ENABLE_SNOW,
+    KEY_SNOW_RATE_CM_H: CONF_ENABLE_SNOW,
+    KEY_SNOW_TODAY_CM: CONF_ENABLE_SNOW,
+    KEY_SNOW_THIS_MONTH_CM: CONF_ENABLE_SNOW,
+    KEY_SNOW_THIS_YEAR_CM: CONF_ENABLE_SNOW,
     KEY_SOIL_MOISTURE: CONF_ENABLE_SOIL,
     KEY_SOIL_TEMP_C: CONF_ENABLE_SOIL,
     KEY_SOIL_MOISTURE_DEFICIT: CONF_ENABLE_SOIL,
@@ -2947,6 +3015,8 @@ class WSSensor(RestoreEntity, CoordinatorEntity, SensorEntity):
                 "rain_rate": coordinator.rain_rate_unit,
                 "distance": coordinator.distance_unit,
                 "altitude": coordinator.altitude_unit,
+                "snow": coordinator.snow_unit,
+                "snow_rate": coordinator.snow_rate_unit,
             }.get(desc.unit_group, desc.native_unit)
         else:
             self._attr_native_unit_of_measurement = desc.native_unit
@@ -3185,6 +3255,14 @@ class WSSensor(RestoreEntity, CoordinatorEntity, SensorEntity):
             KEY_NET_RADIATION: "net_radiation",
             KEY_RAIN_TODAY_MM: "rain_today_mm",
             KEY_CONDITIONS_SUMMARY: "conditions_summary",
+            # v2.7 - snow (opt-in). Explicit overrides: the generic fallback
+            # below only strips a trailing "_c", not "_cm", which would mangle
+            # these into e.g. "snow_todaym".
+            KEY_SNOW_PHASE: "snow_phase",
+            KEY_SNOW_RATE_CM_H: "snow_rate",
+            KEY_SNOW_TODAY_CM: "snow_today",
+            KEY_SNOW_THIS_MONTH_CM: "snow_this_month",
+            KEY_SNOW_THIS_YEAR_CM: "snow_this_year",
         }
         if key in overrides:
             return overrides[key]
@@ -3206,6 +3284,10 @@ class WSSensor(RestoreEntity, CoordinatorEntity, SensorEntity):
             return val * _DISTANCE_FACTORS.get(unit, 1.0)
         if group == "altitude":
             return val * _ALTITUDE_FACTORS.get(unit, 1.0)
+        if group == "snow":
+            return val / 2.54 if unit == "in" else val
+        if group == "snow_rate":
+            return val / 2.54 if unit == "in/h" else val
         return val
 
     @property

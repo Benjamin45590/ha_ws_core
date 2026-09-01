@@ -83,6 +83,13 @@ def _coord():
     c._solar_energy_date = ""
     # v2.0 max rain rate over rolling 24h window (issue #139)
     c._rain_rate_history_24h = deque()
+    # v2.7 snow accumulation (opt-in)
+    c._snow_today_cm = 0.0
+    c._snow_today_date = ""
+    c._snow_this_month_cm = 0.0
+    c._snow_this_month_key = ""
+    c._snow_this_year_cm = 0.0
+    c._snow_this_year_key = ""
     return c
 
 

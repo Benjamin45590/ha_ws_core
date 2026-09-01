@@ -85,6 +85,7 @@ from .algorithms import (
     calculate_wind_chill,
     calculate_wind_direction_variability,
     calculate_wind_gust_factor,
+    classify_precip_phase,
     clearness_to_cloud_cover,
     combine_rain_probability,
     compute_fwi,
@@ -92,6 +93,7 @@ from .algorithms import (
     derive_nowcast,
     determine_current_condition,
     direction_to_quadrant,
+    estimate_snowfall_cm,
     et0_hargreaves,
     et0_hourly_estimate,
     et0_penman_monteith,
@@ -156,6 +158,7 @@ from .const import (
     CONF_ENABLE_POLLEN,
     CONF_ENABLE_PWSWEATHER,
     CONF_ENABLE_SEA_TEMP,
+    CONF_ENABLE_SNOW,
     CONF_ENABLE_SOIL,
     CONF_ENABLE_SOLAR_FORECAST,
     CONF_ENABLE_THUNDERSTORM,
@@ -253,6 +256,7 @@ from .const import (
     DEFAULT_ENABLE_OWM_STATIONS,
     DEFAULT_ENABLE_POLLEN,
     DEFAULT_ENABLE_PWSWEATHER,
+    DEFAULT_ENABLE_SNOW,
     DEFAULT_ENABLE_SOIL,
     DEFAULT_ENABLE_SOLAR_FORECAST,
     DEFAULT_ENABLE_THUNDERSTORM,
@@ -462,6 +466,12 @@ from .const import (
     KEY_SENSOR_QUALITY_FLAGS,
     KEY_SENSOR_SPIKE,
     KEY_SENSOR_STUCK,
+    KEY_SNOW_FALLING,
+    KEY_SNOW_PHASE,
+    KEY_SNOW_RATE_CM_H,
+    KEY_SNOW_THIS_MONTH_CM,
+    KEY_SNOW_THIS_YEAR_CM,
+    KEY_SNOW_TODAY_CM,
     KEY_SOIL_MOISTURE,
     KEY_SOIL_MOISTURE_DEFICIT,
     KEY_SOIL_TEMP_C,
@@ -656,7 +666,23 @@ class WSStationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     ):
         self.hass = hass
         self.entry_data = entry_data
-        self.entry_options = entry_options or {}
+        # entry_options is deliberately pre-merged (data as base, options
+        # overriding) rather than left as a bare copy of entry.options. The
+        # *initial* config flow writes every enable_* toggle into entry.data
+        # only (entry.options starts as {} until the user opens Configure and
+        # saves once - see OptionsFlow.async_create_entry), so a bare
+        # `entry_options or {}` here meant every per-cycle gate that reads
+        # `self.entry_options.get(CONF_ENABLE_X, DEFAULT)` directly (e.g.
+        # _compute_soil, _maybe_update_auto_calibration, the calibration/
+        # threshold reads below) silently fell back to DEFAULT (usually off)
+        # on a freshly created entry, even for a feature the user enabled in
+        # the wizard - until Configure was opened once. sensor.py's
+        # async_setup_entry already merges `{**entry.data, **entry.options}`
+        # for entity creation, so entities existed but sat unavailable. This
+        # merge makes self.entry_options behave the same way everywhere,
+        # matching the _get() closure below (which already did this merge
+        # manually, just not for direct self.entry_options.get(...) callers).
+        self.entry_options: dict[str, Any] = {**entry_data, **(entry_options or {})}
         self.runtime = WSStationRuntime()
 
         self.sources: dict[str, str] = dict((entry_options or {}).get(CONF_SOURCES) or entry_data.get(CONF_SOURCES, {}))
@@ -824,6 +850,18 @@ class WSStationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._rain_this_year_mm: float = 0.0
         self._rain_this_year_key: str = ""  # "YYYY"
         self._rain_this_year_last_total: float | None = None
+
+        # v2.7 - Snow (opt-in): estimated depth, integrated locally from the
+        # liquid rain rate (not a cumulative-sensor delta like rain above,
+        # since no snow gauge exists) so it never touches the rain accumulators.
+        self.snow_enabled = bool(_get(CONF_ENABLE_SNOW, DEFAULT_ENABLE_SNOW))
+        self._snow_last_calc_ts: Any = None
+        self._snow_today_cm: float = 0.0
+        self._snow_today_date: str = ""
+        self._snow_this_month_cm: float = 0.0
+        self._snow_this_month_key: str = ""  # "YYYY-MM"
+        self._snow_this_year_cm: float = 0.0
+        self._snow_this_year_key: str = ""  # "YYYY"
 
         # Yearly / all-time temperature extremes (issue #124). Yearly resets
         # when the current year no longer matches _temp_year_key; all-time
@@ -1090,6 +1128,16 @@ class WSStationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     @property
     def altitude_unit(self) -> str:
         return self._resolve_unit(self._altitude_unit_conf, "m", "ft")
+
+    @property
+    def snow_unit(self) -> str:
+        """Snow depth follows the rain unit preference (mm/in) - no separate
+        setting - since both are the same metric/imperial choice."""
+        return "in" if self.rain_unit == "in" else "cm"
+
+    @property
+    def snow_rate_unit(self) -> str:
+        return "in/h" if self.rain_unit == "in" else "cm/h"
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -2592,6 +2640,70 @@ class WSStationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             need_label = "critical"
         data[KEY_IRRIGATION_NEED] = need_label
 
+    def _compute_snow(self, data: dict, now: Any) -> None:
+        """Estimate precipitation phase and snow accumulation.  (v2.7, opt-in)
+
+        Heuristic, not a measurement: no station-agnostic snow gauge exists.
+        See algorithms.py's classify_precip_phase / estimate_snowfall_cm for
+        the method (wet-bulb phase threshold + temperature-dependent
+        snow-to-liquid ratio) and its caveats. Snow depth is integrated
+        locally from the smoothed liquid rain rate over elapsed real time -
+        deliberately *not* a delta of the cumulative rain-total sensor like
+        the rain accumulators use, since there is no cumulative snow sensor
+        to delta against, and this keeps it fully isolated from (never
+        touches) the existing rain sensors' behaviour.
+        """
+        if not self.snow_enabled:
+            return
+        tc = data.get(KEY_NORM_TEMP_C)
+        rh = data.get(KEY_NORM_HUMIDITY)
+        rain_rate = float(data.get(KEY_RAIN_RATE_FILT) or 0.0)
+        if tc is None or rh is None:
+            return
+
+        wet_bulb = calculate_wet_bulb(float(tc), float(rh))
+        phase = classify_precip_phase(wet_bulb) if rain_rate > 0.1 else "none"
+        data[KEY_SNOW_PHASE] = phase
+        data[KEY_SNOW_FALLING] = phase == "snow"
+
+        # Elapsed time since the last cycle this ran, capped so a long gap
+        # (HA restart, a missed tick) can't attribute hours of accumulation
+        # to a single sample.
+        elapsed_h = 0.0
+        if self._snow_last_calc_ts is not None:
+            elapsed_h = max(0.0, (now - self._snow_last_calc_ts).total_seconds() / 3600.0)
+            elapsed_h = min(elapsed_h, 0.5)
+        self._snow_last_calc_ts = now
+
+        new_snow_cm = 0.0
+        if phase == "snow":
+            data[KEY_SNOW_RATE_CM_H] = round(estimate_snowfall_cm(rain_rate, float(tc)), 2)
+            if elapsed_h > 0:
+                new_snow_cm = estimate_snowfall_cm(rain_rate * elapsed_h, float(tc))
+        else:
+            data[KEY_SNOW_RATE_CM_H] = 0.0
+
+        date_str = dt_util.now().strftime("%Y-%m-%d")
+        if date_str != self._snow_today_date:
+            self._snow_today_cm = 0.0
+            self._snow_today_date = date_str
+        self._snow_today_cm += new_snow_cm
+        data[KEY_SNOW_TODAY_CM] = round(self._snow_today_cm, 1)
+
+        month_key = dt_util.now().strftime("%Y-%m")
+        if month_key != self._snow_this_month_key:
+            self._snow_this_month_cm = 0.0
+            self._snow_this_month_key = month_key
+        self._snow_this_month_cm += new_snow_cm
+        data[KEY_SNOW_THIS_MONTH_CM] = round(self._snow_this_month_cm, 1)
+
+        year_key = dt_util.now().strftime("%Y")
+        if year_key != self._snow_this_year_key:
+            self._snow_this_year_cm = 0.0
+            self._snow_this_year_key = year_key
+        self._snow_this_year_cm += new_snow_cm
+        data[KEY_SNOW_THIS_YEAR_CM] = round(self._snow_this_year_cm, 1)
+
     async def _async_fetch_neighbor_qc(self) -> None:
         """Fetch Open-Meteo current weather as a spatial QC reference.  (v2.0)
 
@@ -3795,6 +3907,13 @@ class WSStationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # v2.0 solar energy accumulation (Wh/m², resets at midnight)
             "solar_energy_today_whm2": self._solar_energy_today_whm2,
             "solar_energy_date": self._solar_energy_date,
+            # v2.7 - snow accumulation (opt-in)
+            "snow_today_cm": self._snow_today_cm,
+            "snow_today_date": self._snow_today_date,
+            "snow_this_month_cm": self._snow_this_month_cm,
+            "snow_this_month_key": self._snow_this_month_key,
+            "snow_this_year_cm": self._snow_this_year_cm,
+            "snow_this_year_key": self._snow_this_year_key,
         }
 
     def _restore_history_state(self, data: dict[str, Any]) -> None:
@@ -3966,6 +4085,18 @@ class WSStationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._solar_energy_today_whm2 = float(data.get("solar_energy_today_whm2") or 0.0)
             self._solar_energy_date = today
 
+        # v2.7 - snow accumulation: restore only within the same period,
+        # mirroring the rain day/month/year restore above.
+        if data.get("snow_today_date") == today:
+            self._snow_today_cm = float(data.get("snow_today_cm") or 0.0)
+            self._snow_today_date = today
+        if data.get("snow_this_month_key") == month_key:
+            self._snow_this_month_cm = float(data.get("snow_this_month_cm") or 0.0)
+            self._snow_this_month_key = month_key
+        if data.get("snow_this_year_key") == year_key:
+            self._snow_this_year_cm = float(data.get("snow_this_year_cm") or 0.0)
+            self._snow_this_year_key = year_key
+
     # ------------------------------------------------------------------
     # Main orchestrator
     # ------------------------------------------------------------------
@@ -4083,6 +4214,7 @@ class WSStationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._compute_lightning(data, now)
         self._compute_indoor(data)
         self._compute_soil(data)
+        self._compute_snow(data, now)
         self._compute_neighbor_qc(data)
         self._compute_data_quality_score(data)
         self._compute_health(data, now, missing, missing_entities)

@@ -67,6 +67,7 @@ from .const import (
     CONF_ENABLE_POLLEN,
     CONF_ENABLE_PWSWEATHER,
     CONF_ENABLE_SEA_TEMP,
+    CONF_ENABLE_SNOW,
     CONF_ENABLE_SOIL,
     CONF_ENABLE_SOLAR_FORECAST,
     CONF_ENABLE_THUNDERSTORM,
@@ -167,6 +168,7 @@ from .const import (
     DEFAULT_ENABLE_POLLEN,
     DEFAULT_ENABLE_PWSWEATHER,
     DEFAULT_ENABLE_SEA_TEMP,
+    DEFAULT_ENABLE_SNOW,
     DEFAULT_ENABLE_SOIL,
     DEFAULT_ENABLE_SOLAR_FORECAST,
     DEFAULT_ENABLE_THUNDERSTORM,
@@ -1051,6 +1053,7 @@ class WSStationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._data[CONF_ENABLE_LIGHTNING] = bool(user_input.get(CONF_ENABLE_LIGHTNING, DEFAULT_ENABLE_LIGHTNING))
             self._data[CONF_ENABLE_INDOOR] = bool(user_input.get(CONF_ENABLE_INDOOR, DEFAULT_ENABLE_INDOOR))
             self._data[CONF_ENABLE_SOIL] = bool(user_input.get(CONF_ENABLE_SOIL, DEFAULT_ENABLE_SOIL))
+            self._data[CONF_ENABLE_SNOW] = bool(user_input.get(CONF_ENABLE_SNOW, DEFAULT_ENABLE_SNOW))
             self._data[CONF_ENABLE_WEATHERCLOUD] = bool(
                 user_input.get(CONF_ENABLE_WEATHERCLOUD, DEFAULT_ENABLE_WEATHERCLOUD)
             )
@@ -1150,6 +1153,7 @@ class WSStationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Optional(CONF_ENABLE_LIGHTNING, default=DEFAULT_ENABLE_LIGHTNING): selector.BooleanSelector(),
                     vol.Optional(CONF_ENABLE_INDOOR, default=DEFAULT_ENABLE_INDOOR): selector.BooleanSelector(),
                     vol.Optional(CONF_ENABLE_SOIL, default=DEFAULT_ENABLE_SOIL): selector.BooleanSelector(),
+                    vol.Optional(CONF_ENABLE_SNOW, default=DEFAULT_ENABLE_SNOW): selector.BooleanSelector(),
                     vol.Optional(
                         CONF_ENABLE_WEATHERCLOUD, default=DEFAULT_ENABLE_WEATHERCLOUD
                     ): selector.BooleanSelector(),
@@ -2483,6 +2487,9 @@ class WSStationOptionsFlowHandler(config_entries.OptionsFlow):
                     ): selector.BooleanSelector(),
                     vol.Optional(
                         CONF_ENABLE_SOIL, default=g(CONF_ENABLE_SOIL, DEFAULT_ENABLE_SOIL)
+                    ): selector.BooleanSelector(),
+                    vol.Optional(
+                        CONF_ENABLE_SNOW, default=g(CONF_ENABLE_SNOW, DEFAULT_ENABLE_SNOW)
                     ): selector.BooleanSelector(),
                     vol.Optional(
                         CONF_ENABLE_AUTO_CALIBRATION,

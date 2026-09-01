@@ -304,6 +304,17 @@ views:
           - sensor.ws_rain_last_24h
           - sensor.ws_rain_rate_max_24h
 
+      # Requires Feature: Snow (off by default)
+      - type: entities
+        title: Snow
+        entities:
+          - sensor.ws_snow_phase
+          - binary_sensor.ws_snow_falling
+          - sensor.ws_snow_rate
+          - sensor.ws_snow_today
+          - sensor.ws_snow_this_month
+          - sensor.ws_snow_this_year
+
       - type: entities
         title: Temperature Records
         entities:

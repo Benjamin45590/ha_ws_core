@@ -911,6 +911,22 @@ KEY_IRRIGATION_NEED = "irrigation_need"  # text: "None"/"Low"/"Moderate"/"High"/
 KEY_IRRIGATION_NEED_SCORE = "irrigation_need_score"  # 0-100 numeric
 
 # ---------------------------------------------------------------------------
+# v2.7 - Snow (opt-in): precipitation phase + estimated accumulation
+# ---------------------------------------------------------------------------
+# No station-agnostic snow gauge exists, so this is a heuristic estimate from
+# temperature, humidity, and the existing liquid-equivalent rain rate - not a
+# measurement. See algorithms.py's classify_precip_phase / estimate_snowfall_cm.
+CONF_ENABLE_SNOW = "enable_snow"
+DEFAULT_ENABLE_SNOW = False
+
+KEY_SNOW_PHASE = "snow_precip_phase"  # "snow" / "sleet" / "rain" / "none"
+KEY_SNOW_FALLING = "snow_falling"  # bool
+KEY_SNOW_RATE_CM_H = "snow_rate_cm_h"  # estimated current snowfall rate
+KEY_SNOW_TODAY_CM = "snow_today_cm"  # resets at local midnight
+KEY_SNOW_THIS_MONTH_CM = "snow_this_month_cm"
+KEY_SNOW_THIS_YEAR_CM = "snow_this_year_cm"
+
+# ---------------------------------------------------------------------------
 # v2.0 - Data quality expansion
 # ---------------------------------------------------------------------------
 
