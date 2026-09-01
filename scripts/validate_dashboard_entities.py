@@ -67,6 +67,14 @@ def _weather_entity_ids(prefix: str = "ws") -> set[str]:
     return {f"weather.{prefix}"}
 
 
+def _event_entity_ids(prefix: str = "ws") -> set[str]:
+    """Read entity_id slugs from event.py."""
+    event_py = (ROOT / "custom_components/ws_core/event.py").read_text(encoding="utf-8")
+    # Pattern: self.entity_id = f"event.{prefix}_rain_event" etc.
+    slugs = re.findall(r'f"event\.\{prefix\}_([^"]+)"', event_py)
+    return {f"event.{prefix}_{slug}" for slug in slugs}
+
+
 KNOWN_EXTERNAL: set[str] = {
     "sun.sun",
     "select.ws_graph_range",
@@ -85,6 +93,7 @@ def build_known_entities(prefix: str = "ws") -> set[str]:
         | _switch_entity_ids(prefix)
         | _binary_sensor_entity_ids(prefix)
         | _weather_entity_ids(prefix)
+        | _event_entity_ids(prefix)
         | KNOWN_EXTERNAL
     )
 
@@ -95,7 +104,7 @@ def build_known_entities(prefix: str = "ws") -> set[str]:
 
 _ENTITY_RE = re.compile(
     r"""(?:entity:\s*|states\s*\[['"])"""
-    r"""((?:sensor|switch|select|sun|input_text|binary_sensor|weather)\.[\w]+)"""
+    r"""((?:sensor|switch|select|sun|input_text|binary_sensor|weather|event)\.[\w]+)"""
 )
 
 

@@ -27,7 +27,11 @@ Works immediately after installation.
 Best for users who want a functional weather dashboard without installing any
 additional HACS frontend integrations.
 
-**Cards used:** `entities`, `gauge`, `history-graph`, `weather-forecast`, `statistic`.
+**Cards used:** `entities`, `gauge`, `history-graph`, `logbook`, `weather-forecast`, `statistic`.
+
+Includes a **Recent Weather Events** logbook card (Station page) showing the last
+72h of rain start/stop, frost/thaw, and lightning-strike events from the built-in
+event entities.
 
 ---
 
@@ -69,7 +73,8 @@ Six-view dashboard covering the full range of v2.0 sensors.
 3. **Advanced** — UTCI, fire risk, ET₀, VPD, pressure trend, forecast agreement
 4. **Records** — rain accumulators (today/week/month/year), temperature records,
    streak counters
-5. **Diagnostics** — data quality score, sensor drift flags, upload status sensors
+5. **Diagnostics** — data quality score, sensor drift flags, upload status sensors,
+   and a **Recent Weather Events** logbook (rain start/stop, frost/thaw, lightning)
 6. **Indoor** — indoor comfort score, temperature and humidity deltas, plus per-room sensors (temp delta, humidity, CO₂ and comfort) for each named room
 
 **HACS frontend dependencies required:** `mushroom`, `mini-graph-card`.
@@ -79,7 +84,8 @@ Six-view dashboard covering the full range of v2.0 sensors.
 ## v2.0 Mobile Dashboard (`ws_core_dashboard_mobile.yaml`)
 
 Single-column, touch-optimised layout designed for phones using HA Sections view.
-All the same data as the full dashboard but stacked vertically for portrait screens.
+All the same data as the full dashboard but stacked vertically for portrait screens,
+including the **Recent Weather Events** logbook card.
 
 **HACS frontend dependencies required:** `mushroom`, `mini-graph-card`.
 

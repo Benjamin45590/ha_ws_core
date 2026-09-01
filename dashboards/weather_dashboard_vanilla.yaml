@@ -302,6 +302,15 @@ views:
           - entity: sensor.ws_rain_rate
             name: Rain Rate
 
+      # --- Storm log (requires HA 2023.8+) ---
+      - type: logbook
+        title: Recent Weather Events
+        entities:
+          - event.ws_rain_event
+          - event.ws_frost_event
+          - event.ws_lightning_event
+        hours_to_show: 72
+
   # =============================================
   # PAGE 4: ACTIVITY SCORES
   # =============================================

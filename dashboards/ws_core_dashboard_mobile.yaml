@@ -130,4 +130,15 @@ views:
           - type: custom:mushroom-entity-card
             entity: sensor.ws_data_quality_score
             name: Quality
+
+      # ── Storm log (requires HA 2023.8+) ────────────────────────────
+      - type: grid
+        cards:
+          - type: logbook
+            title: Recent Weather Events
+            entities:
+              - event.ws_rain_event
+              - event.ws_frost_event
+              - event.ws_lightning_event
+            hours_to_show: 72
             icon: mdi:star-check-outline
