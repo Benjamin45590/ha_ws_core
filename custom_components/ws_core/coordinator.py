@@ -139,6 +139,7 @@ from .const import (
     CONF_ENABLE_AIR_QUALITY,
     CONF_ENABLE_AUTO_CALIBRATION,
     CONF_ENABLE_AWEKAS,
+    CONF_ENABLE_CLIMATE_NORMALS,
     CONF_ENABLE_COMFORT_INDICES,
     CONF_ENABLE_CWOP,
     CONF_ENABLE_DEGREE_DAYS,
@@ -238,6 +239,7 @@ from .const import (
     DEFAULT_ENABLE_AIR_QUALITY,
     DEFAULT_ENABLE_AUTO_CALIBRATION,
     DEFAULT_ENABLE_AWEKAS,
+    DEFAULT_ENABLE_CLIMATE_NORMALS,
     DEFAULT_ENABLE_COMFORT_INDICES,
     DEFAULT_ENABLE_CWOP,
     DEFAULT_ENABLE_DEGREE_DAYS,
@@ -326,6 +328,8 @@ from .const import (
     KEY_CHILL_HOURS_SEASON,
     KEY_CHILL_HOURS_TODAY,
     KEY_CLEARNESS_INDEX,
+    KEY_CLIMATE_NORMALS_FETCHED,
+    KEY_CLIMATE_NORMALS_YEARS,
     KEY_CLIMATOLOGY_30D,
     KEY_CLIMATOLOGY_90D,
     KEY_CLOUD_BASE_M,
@@ -439,9 +443,11 @@ from .const import (
     KEY_RAIN_ACCUM_24H,
     KEY_RAIN_ANOMALY_30D,
     KEY_RAIN_ANOMALY_90D,
+    KEY_RAIN_ANOMALY_NORMAL,
     KEY_RAIN_DISPLAY,
     KEY_RAIN_EXPECTED_1H,
     KEY_RAIN_NEXT_60MIN,
+    KEY_RAIN_NORMAL_MM,
     KEY_RAIN_PROBABILITY,
     KEY_RAIN_PROBABILITY_COMBINED,
     KEY_RAIN_RATE_FILT,
@@ -468,16 +474,19 @@ from .const import (
     KEY_SPECIFIC_HUMIDITY,
     KEY_TEMP_ANOMALY_30D,
     KEY_TEMP_ANOMALY_90D,
+    KEY_TEMP_ANOMALY_NORMAL,
     KEY_TEMP_AVG_24H,
     KEY_TEMP_DISPLAY,
     KEY_TEMP_HIGH_24H,
     KEY_TEMP_HIGH_ALL_TIME,
     KEY_TEMP_HIGH_MONTH,
+    KEY_TEMP_HIGH_NORMAL,
     KEY_TEMP_HIGH_WEEK,
     KEY_TEMP_HIGH_YEAR,
     KEY_TEMP_LOW_24H,
     KEY_TEMP_LOW_ALL_TIME,
     KEY_TEMP_LOW_MONTH,
+    KEY_TEMP_LOW_NORMAL,
     KEY_TEMP_LOW_WEEK,
     KEY_TEMP_LOW_YEAR,
     KEY_TEMP_MONTH_REF,
@@ -879,6 +888,13 @@ class WSStationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.pollen_enabled = bool(_get(CONF_ENABLE_POLLEN, DEFAULT_ENABLE_POLLEN))
         self._pollen_cache: dict[str, Any] | None = None
 
+        # v2.7 - Historical climate normals (day-of-year; Open-Meteo archive API)
+        self.climate_normals_enabled = bool(_get(CONF_ENABLE_CLIMATE_NORMALS, DEFAULT_ENABLE_CLIMATE_NORMALS))
+        self._climate_normals: dict[str, dict[str, Any]] = {}
+        self._climate_normals_fetched_at: str = ""
+        self._climate_normals_years: int = 0
+        self._climate_normals_store: Any = None
+
         # Moon (calculated, no external API)
         self.moon_enabled = bool(_get(CONF_ENABLE_MOON, DEFAULT_ENABLE_MOON))
 
@@ -1110,6 +1126,19 @@ class WSStationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except Exception as err:  # noqa: BLE001
             _LOGGER.warning("ws_core: failed to restore history state (starting fresh): %s", err)
 
+        # v2.7 - Climate normals table (its own store: infrequently written,
+        # ~365 entries, kept separate from the frequently-saved learning blob)
+        if self.climate_normals_enabled:
+            self._climate_normals_store = Store(self.hass, 1, f"ws_core_{entry_id}_climate_normals")
+            try:
+                saved = await self._climate_normals_store.async_load()
+                if saved:
+                    self._climate_normals = saved.get("normals") or {}
+                    self._climate_normals_fetched_at = saved.get("fetched_at") or ""
+                    self._climate_normals_years = int(saved.get("years") or 0)
+            except Exception as err:  # noqa: BLE001
+                _LOGGER.warning("ws_core: failed to restore climate normals (starting fresh): %s", err)
+
         entity_ids = [eid for eid in self.sources.values() if eid]
         if entity_ids:
             self._unsubs.append(async_track_state_change_event(self.hass, entity_ids, self._handle_source_change))
@@ -1335,6 +1364,22 @@ class WSStationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     _LOGGER.debug("ws_core: neighbor QC fetch failed: %s", err)
 
             self.hass.async_create_task(_deferred_neighbor_qc())
+
+        # v2.7 - Climate normals: fetch/refresh once, then check daily whether
+        # it's stale (CLIMATE_NORMALS_REFRESH_DAYS) rather than a fixed-interval
+        # re-fetch - normals barely change, so there's no value in polling hourly.
+        if self.climate_normals_enabled and self.forecast_lat is not None and self.forecast_lon is not None:
+
+            async def _climate_normals_loop() -> None:
+                await asyncio.sleep(120)  # let the first regular update land first
+                while True:
+                    await self._async_maybe_refresh_climate_normals()
+                    await asyncio.sleep(24 * 60 * 60)
+
+            _climate_normals_task = self.hass.async_create_background_task(
+                _climate_normals_loop(), "ws_core_climate_normals_fetch"
+            )
+            self._unsubs.append(_climate_normals_task.cancel)
 
         # v2.0: CWOP upload
         if self.cwop_enabled and self.cwop_callsign:
@@ -2684,6 +2729,106 @@ class WSStationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     )
         data[KEY_NEIGHBOR_QC] = flags
 
+    async def _async_maybe_refresh_climate_normals(self) -> None:
+        """Fetch/rebuild the day-of-year climate normals table if stale.  (v2.7)
+
+        One Open-Meteo archive-api call spanning CLIMATE_NORMALS_LOOKBACK_YEARS
+        years, parsed and binned into 365 day-of-year buckets. Cheap to skip:
+        only runs if there's no cached table yet, or the cached one is older
+        than CLIMATE_NORMALS_REFRESH_DAYS - climate normals don't meaningfully
+        change day to day, so this is not on the hourly/60s cadence like the
+        other fetches.
+        """
+        from .const import CLIMATE_NORMALS_LOOKBACK_YEARS, CLIMATE_NORMALS_REFRESH_DAYS, CLIMATE_NORMALS_WINDOW_DAYS
+
+        if self._climate_normals and self._climate_normals_fetched_at:
+            try:
+                fetched = dt_util.parse_datetime(self._climate_normals_fetched_at)
+                if fetched and (dt_util.utcnow() - fetched).days < CLIMATE_NORMALS_REFRESH_DAYS:
+                    return  # still fresh
+            except (TypeError, ValueError):
+                pass
+
+        lat = self.forecast_lat
+        lon = self.forecast_lon
+        if lat is None or lon is None:
+            return
+        try:
+            from .climate_normals import compute_climate_normals, parse_archive_daily_response
+
+            end = dt_util.now().date() - timedelta(days=1)  # archive API lags a few days behind "today"
+            # timedelta rather than replace(year=...): avoids a Feb-29 ValueError
+            # if `end` happens to land on a leap day and year-N isn't a leap year.
+            start = end - timedelta(days=365 * CLIMATE_NORMALS_LOOKBACK_YEARS)
+            url = (
+                "https://archive-api.open-meteo.com/v1/archive"
+                f"?latitude={lat:.4f}&longitude={lon:.4f}"
+                f"&start_date={start.isoformat()}&end_date={end.isoformat()}"
+                "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum"
+                "&timezone=auto"
+            )
+            session = async_get_clientsession(self.hass)
+            async with session.get(url, timeout=60) as resp:
+                if resp.status != 200:
+                    _LOGGER.warning("ws_core: climate normals fetch HTTP %s", resp.status)
+                    return
+                payload = await resp.json()
+            records = parse_archive_daily_response(payload)
+            if not records:
+                _LOGGER.warning("ws_core: climate normals fetch returned no daily records")
+                return
+            normals = compute_climate_normals(records, window_days=CLIMATE_NORMALS_WINDOW_DAYS)
+            if not normals:
+                return
+            self._climate_normals = normals
+            self._climate_normals_fetched_at = dt_util.utcnow().isoformat()
+            self._climate_normals_years = CLIMATE_NORMALS_LOOKBACK_YEARS
+            if self._climate_normals_store is not None:
+                await self._climate_normals_store.async_save(
+                    {
+                        "normals": normals,
+                        "fetched_at": self._climate_normals_fetched_at,
+                        "years": self._climate_normals_years,
+                    }
+                )
+            _LOGGER.info(
+                "ws_core: climate normals refreshed (%d day-of-year buckets, %d years of history)",
+                len(normals),
+                CLIMATE_NORMALS_LOOKBACK_YEARS,
+            )
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning("ws_core: climate normals fetch failed (will retry tomorrow): %s", err)
+
+    def _compute_climate_normal_anomaly(self, data: dict, tc: float | None, rain_today_mm: float | None) -> None:
+        """Compare today against the historical day-of-year normal.  (v2.7)
+
+        Distinct from KEY_TEMP_ANOMALY_30D/90D (self-referential, vs. this
+        station's own recent rolling average): this is vs. the long-term
+        historical average for today's specific calendar date.
+        """
+        if not self.climate_normals_enabled or not self._climate_normals:
+            return
+        from .climate_normals import climate_normal_for_date
+
+        normal = climate_normal_for_date(self._climate_normals, dt_util.now().date())
+        data[KEY_CLIMATE_NORMALS_YEARS] = self._climate_normals_years
+        data[KEY_CLIMATE_NORMALS_FETCHED] = self._climate_normals_fetched_at or None
+        if not normal:
+            return
+
+        t_high = normal.get("t_high")
+        t_low = normal.get("t_low")
+        rain_normal = normal.get("rain")
+        data[KEY_TEMP_HIGH_NORMAL] = t_high
+        data[KEY_TEMP_LOW_NORMAL] = t_low
+        data[KEY_RAIN_NORMAL_MM] = rain_normal
+
+        if tc is not None and t_high is not None and t_low is not None:
+            normal_mean = round((float(t_high) + float(t_low)) / 2.0, 1)
+            data[KEY_TEMP_ANOMALY_NORMAL] = round(float(tc) - normal_mean, 1)
+        if rain_today_mm is not None and rain_normal is not None:
+            data[KEY_RAIN_ANOMALY_NORMAL] = round(float(rain_today_mm) - float(rain_normal), 1)
+
     def _compute_data_quality_score(self, data: dict) -> None:
         """Compute overall data quality score (0-100) and stuck-sensor flags.  (v2.0)"""
         stuck_flags: list[str] = []
@@ -3950,6 +4095,7 @@ class WSStationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # are independent of GDD).
         self._compute_streaks(data, now)
         self._compute_climatology(data)
+        self._compute_climate_normal_anomaly(data, tc, data.get("_rain_today_mm"))
         self._compute_drift_detection(data, now)
         self._compute_consistency_checks(data, now)
         self._compute_learning_sensors(data)

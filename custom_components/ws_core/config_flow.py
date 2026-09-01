@@ -49,6 +49,7 @@ from .const import (
     CONF_ENABLE_AIR_QUALITY,
     CONF_ENABLE_AUTO_CALIBRATION,
     CONF_ENABLE_AWEKAS,
+    CONF_ENABLE_CLIMATE_NORMALS,
     CONF_ENABLE_COMFORT_INDICES,
     CONF_ENABLE_CWOP,
     CONF_ENABLE_DEGREE_DAYS,
@@ -148,6 +149,7 @@ from .const import (
     DEFAULT_ENABLE_AIR_QUALITY,
     DEFAULT_ENABLE_AUTO_CALIBRATION,
     DEFAULT_ENABLE_AWEKAS,
+    DEFAULT_ENABLE_CLIMATE_NORMALS,
     DEFAULT_ENABLE_COMFORT_INDICES,
     DEFAULT_ENABLE_CWOP,
     DEFAULT_ENABLE_DEGREE_DAYS,
@@ -1064,6 +1066,9 @@ class WSStationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self._data[CONF_ENABLE_AUTO_CALIBRATION] = bool(
                 user_input.get(CONF_ENABLE_AUTO_CALIBRATION, DEFAULT_ENABLE_AUTO_CALIBRATION)
             )
+            self._data[CONF_ENABLE_CLIMATE_NORMALS] = bool(
+                user_input.get(CONF_ENABLE_CLIMATE_NORMALS, DEFAULT_ENABLE_CLIMATE_NORMALS)
+            )
             # Navigation chain
             if self._data[CONF_ENABLE_SEA_TEMP]:
                 return await self.async_step_sea_temp()
@@ -1159,6 +1164,9 @@ class WSStationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Optional(CONF_ENABLE_MQTT, default=DEFAULT_ENABLE_MQTT): selector.BooleanSelector(),
                     vol.Optional(
                         CONF_ENABLE_AUTO_CALIBRATION, default=DEFAULT_ENABLE_AUTO_CALIBRATION
+                    ): selector.BooleanSelector(),
+                    vol.Optional(
+                        CONF_ENABLE_CLIMATE_NORMALS, default=DEFAULT_ENABLE_CLIMATE_NORMALS
                     ): selector.BooleanSelector(),
                 }
             ),
@@ -2479,6 +2487,10 @@ class WSStationOptionsFlowHandler(config_entries.OptionsFlow):
                     vol.Optional(
                         CONF_ENABLE_AUTO_CALIBRATION,
                         default=g(CONF_ENABLE_AUTO_CALIBRATION, DEFAULT_ENABLE_AUTO_CALIBRATION),
+                    ): selector.BooleanSelector(),
+                    vol.Optional(
+                        CONF_ENABLE_CLIMATE_NORMALS,
+                        default=g(CONF_ENABLE_CLIMATE_NORMALS, DEFAULT_ENABLE_CLIMATE_NORMALS),
                     ): selector.BooleanSelector(),
                 }
             ),

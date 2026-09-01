@@ -295,6 +295,12 @@ Via Open-Meteo Marine API (free, no API key).
 | `sensor.ws_forecast_blend_weight_local` | Current learned weight (%) of the local model in the blended probability |
 | `sensor.ws_temp_anomaly_90d` | Temperature anomaly (°C) — recent 30d mean vs 90d seasonal baseline (requires ≥60 days of data) |
 | `sensor.ws_rain_anomaly_90d` | Precipitation anomaly (mm/d) — recent 30d mean vs 90d seasonal baseline |
+| `sensor.ws_auto_calibration` | Adaptive calibration status (`learning`/`stable`/`adjusted`) — requires **Feature: Adaptive Sensor Calibration** |
+| `sensor.ws_temperature_high_normal` | Historical normal high for today's calendar date (~10y average) — requires **Feature: Historical Climate Normals** |
+| `sensor.ws_temperature_low_normal` | Historical normal low for today's calendar date |
+| `sensor.ws_rain_normal` | Historical normal rainfall for today's calendar date |
+| `sensor.ws_temperature_anomaly_normal` | Today's temperature vs. the historical normal for this specific date — distinct from `_anomaly_30d`/`_90d` (self-referential vs. this station's own recent average) |
+| `sensor.ws_rain_anomaly_normal` | Today's rain vs. the historical normal for this specific date |
 
 ---
 

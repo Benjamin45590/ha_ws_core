@@ -538,6 +538,28 @@ KEY_TEMP_ANOMALY_90D = "temp_anomaly_90d"
 KEY_RAIN_ANOMALY_90D = "rain_anomaly_90d"
 
 # ---------------------------------------------------------------------------
+# v2.7 - Historical climate normals (day-of-year, distinct from the
+# self-referential 30d/90d anomaly above: this compares today against the
+# long-term historical average for *this specific day of the year* at this
+# location - the "X degrees above/below normal" a TV weather report gives -
+# rather than against the station's own recent rolling average).
+# ---------------------------------------------------------------------------
+CONF_ENABLE_CLIMATE_NORMALS = "enable_climate_normals"
+DEFAULT_ENABLE_CLIMATE_NORMALS = False
+
+CLIMATE_NORMALS_LOOKBACK_YEARS = 10  # years of Open-Meteo archive (ERA5) history to average
+CLIMATE_NORMALS_WINDOW_DAYS = 5  # +/- circular calendar days smoothed into each day-of-year bucket
+CLIMATE_NORMALS_REFRESH_DAYS = 30  # re-fetch cadence; normals don't meaningfully change day to day
+
+KEY_TEMP_HIGH_NORMAL = "temp_high_normal"
+KEY_TEMP_LOW_NORMAL = "temp_low_normal"
+KEY_RAIN_NORMAL_MM = "rain_normal_mm"
+KEY_TEMP_ANOMALY_NORMAL = "temp_anomaly_normal"
+KEY_RAIN_ANOMALY_NORMAL = "rain_anomaly_normal"
+KEY_CLIMATE_NORMALS_YEARS = "climate_normals_sample_years"
+KEY_CLIMATE_NORMALS_FETCHED = "climate_normals_fetched_at"
+
+# ---------------------------------------------------------------------------
 # v1.3.0 - Canadian FWI (Fire Weather Index) system
 # ---------------------------------------------------------------------------
 KEY_FWI_FFMC = "fwi_ffmc"

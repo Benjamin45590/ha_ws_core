@@ -311,6 +311,8 @@ views:
           - sensor.ws_temperature_low_24h
           - sensor.ws_temperature_avg_24h
           - sensor.ws_temperature_anomaly_30d
+          - sensor.ws_temperature_anomaly_normal
+          - sensor.ws_rain_anomaly_normal
 
       - type: entities
         title: Wind Records

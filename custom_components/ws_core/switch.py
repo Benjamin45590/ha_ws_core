@@ -24,6 +24,7 @@ from .const import (
     CONF_ENABLE_AIR_QUALITY,
     CONF_ENABLE_AUTO_CALIBRATION,
     CONF_ENABLE_AWEKAS,
+    CONF_ENABLE_CLIMATE_NORMALS,
     CONF_ENABLE_COMFORT_INDICES,
     CONF_ENABLE_CWOP,
     CONF_ENABLE_DEGREE_DAYS,
@@ -55,6 +56,7 @@ from .const import (
     DEFAULT_ENABLE_AIR_QUALITY,
     DEFAULT_ENABLE_AUTO_CALIBRATION,
     DEFAULT_ENABLE_AWEKAS,
+    DEFAULT_ENABLE_CLIMATE_NORMALS,
     DEFAULT_ENABLE_COMFORT_INDICES,
     DEFAULT_ENABLE_CWOP,
     DEFAULT_ENABLE_DEGREE_DAYS,
@@ -295,6 +297,18 @@ FEATURE_SWITCHES: tuple[WSFeatureDesc, ...] = (
             "small, bounded amount at most once per day once confident (~10 days of "
             "samples). Never overshoots the learned bias. Off by default; review "
             "sensor.ws_auto_calibration for what it has learned before enabling."
+        ),
+    ),
+    WSFeatureDesc(
+        conf_key=CONF_ENABLE_CLIMATE_NORMALS,
+        default=DEFAULT_ENABLE_CLIMATE_NORMALS,
+        name="Feature: Historical Climate Normals",
+        icon="mdi:calendar-clock",
+        description=(
+            "Fetches ~10 years of historical daily data for your location "
+            "(Open-Meteo archive/ERA5, one request, refreshed monthly) and "
+            "compares today against the long-term normal for this specific "
+            "calendar day - not just your station's own recent average."
         ),
     ),
     # v1.8.4 (issue #20) — inverted: ON means notifications enabled (suppress=False)
