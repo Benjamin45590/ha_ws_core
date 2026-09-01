@@ -47,6 +47,7 @@ from .const import (
     CONF_ENABLE_ADVANCED_SENSORS,
     # v0.7.0
     CONF_ENABLE_AIR_QUALITY,
+    CONF_ENABLE_AUTO_CALIBRATION,
     CONF_ENABLE_AWEKAS,
     CONF_ENABLE_COMFORT_INDICES,
     CONF_ENABLE_CWOP,
@@ -145,6 +146,7 @@ from .const import (
     DEFAULT_ELEVATION_M,
     DEFAULT_ENABLE_ADVANCED_SENSORS,
     DEFAULT_ENABLE_AIR_QUALITY,
+    DEFAULT_ENABLE_AUTO_CALIBRATION,
     DEFAULT_ENABLE_AWEKAS,
     DEFAULT_ENABLE_COMFORT_INDICES,
     DEFAULT_ENABLE_CWOP,
@@ -1059,6 +1061,9 @@ class WSStationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
             self._data[CONF_ENABLE_WINDY] = bool(user_input.get(CONF_ENABLE_WINDY, DEFAULT_ENABLE_WINDY))
             self._data[CONF_ENABLE_CWOP] = bool(user_input.get(CONF_ENABLE_CWOP, DEFAULT_ENABLE_CWOP))
+            self._data[CONF_ENABLE_AUTO_CALIBRATION] = bool(
+                user_input.get(CONF_ENABLE_AUTO_CALIBRATION, DEFAULT_ENABLE_AUTO_CALIBRATION)
+            )
             # Navigation chain
             if self._data[CONF_ENABLE_SEA_TEMP]:
                 return await self.async_step_sea_temp()
@@ -1152,6 +1157,9 @@ class WSStationConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Optional(CONF_ENABLE_WINDY, default=DEFAULT_ENABLE_WINDY): selector.BooleanSelector(),
                     vol.Optional(CONF_ENABLE_CWOP, default=DEFAULT_ENABLE_CWOP): selector.BooleanSelector(),
                     vol.Optional(CONF_ENABLE_MQTT, default=DEFAULT_ENABLE_MQTT): selector.BooleanSelector(),
+                    vol.Optional(
+                        CONF_ENABLE_AUTO_CALIBRATION, default=DEFAULT_ENABLE_AUTO_CALIBRATION
+                    ): selector.BooleanSelector(),
                 }
             ),
             last_step=False,
@@ -2467,6 +2475,10 @@ class WSStationOptionsFlowHandler(config_entries.OptionsFlow):
                     ): selector.BooleanSelector(),
                     vol.Optional(
                         CONF_ENABLE_SOIL, default=g(CONF_ENABLE_SOIL, DEFAULT_ENABLE_SOIL)
+                    ): selector.BooleanSelector(),
+                    vol.Optional(
+                        CONF_ENABLE_AUTO_CALIBRATION,
+                        default=g(CONF_ENABLE_AUTO_CALIBRATION, DEFAULT_ENABLE_AUTO_CALIBRATION),
                     ): selector.BooleanSelector(),
                 }
             ),

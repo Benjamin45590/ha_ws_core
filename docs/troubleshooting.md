@@ -78,6 +78,25 @@ data:
   cal_wind_ms: 0        # no wind adjustment
 ```
 
+### Adaptive (auto-apply) calibration
+
+If you'd rather not track down a reference station yourself, enable **Feature:
+Adaptive Sensor Calibration** under **Configure → Features**. It's off by
+default. When on, it reuses the regional forecast reference point already
+fetched hourly for neighbor QC as a slow-moving comparison: temperature,
+humidity, and pressure each get a residual-bias estimate that only settles
+after many samples (~10 days), and only once that bias is both confident and
+outside a noise deadband does it nudge the same `cal_temp_c` / `cal_humidity`
+/ `cal_pressure_hpa` options above - by a small, bounded amount, at most once
+per day, never overshooting the learned bias. It never touches wind, since a
+grid-model comparison for wind is too dependent on local terrain to trust.
+
+Watch `sensor.ws_auto_calibration` to see what it has learned (`learning` /
+`stable` / `adjusted`, plus the current bias estimate for each field and the
+date it last nudged something) before deciding whether to leave it on. You
+can always turn the toggle off, or override the calibration numbers by hand
+at any time - manual changes are respected the same way either way.
+
 Or adjust the number entities directly from the device page:
 `number.ws_cal_temp`, `number.ws_cal_humidity`, `number.ws_cal_pressure`,
 `number.ws_cal_wind`.

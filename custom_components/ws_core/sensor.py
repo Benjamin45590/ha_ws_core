@@ -19,6 +19,8 @@ from .const import (
     CONF_ENABLE_ADVANCED_SENSORS,
     # v0.7.0
     CONF_ENABLE_AIR_QUALITY,
+    # v2.7
+    CONF_ENABLE_AUTO_CALIBRATION,
     # v2.0
     CONF_ENABLE_AWEKAS,
     # v1.5.0
@@ -71,6 +73,12 @@ from .const import (
     # v0.7.0
     KEY_AQI,
     KEY_AQI_LEVEL,
+    KEY_AUTO_CAL_BIAS_HUMIDITY,
+    KEY_AUTO_CAL_BIAS_PRESSURE_HPA,
+    KEY_AUTO_CAL_BIAS_TEMP_C,
+    KEY_AUTO_CAL_LAST_APPLIED,
+    KEY_AUTO_CAL_N_SAMPLES,
+    KEY_AUTO_CAL_STATUS,
     KEY_AWEKAS_STATUS,
     KEY_BATTERY_PCT,
     KEY_CDD_SEASON,
@@ -2398,6 +2406,25 @@ SENSORS: list[WSSensorDescription] = [
         state_class=SensorStateClass.MEASUREMENT,
         attrs_fn=lambda d: {"calibration_days": d.get("_solar_lux_factor_n_days", 0)},
     ),
+    # v2.7 — Adaptive (auto-apply) calibration status
+    WSSensorDescription(
+        key=KEY_AUTO_CAL_STATUS,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        translation_key="auto_calibration",
+        name="WS Auto Calibration",
+        icon="mdi:tune",
+        device_class=SensorDeviceClass.ENUM,
+        options=["learning", "stable", "adjusted"],
+        native_unit=None,
+        state_class=None,
+        attrs_fn=lambda d: {
+            "bias_temp_c": d.get(KEY_AUTO_CAL_BIAS_TEMP_C),
+            "bias_humidity": d.get(KEY_AUTO_CAL_BIAS_HUMIDITY),
+            "bias_pressure_hpa": d.get(KEY_AUTO_CAL_BIAS_PRESSURE_HPA),
+            "samples": d.get(KEY_AUTO_CAL_N_SAMPLES, 0),
+            "last_applied": d.get(KEY_AUTO_CAL_LAST_APPLIED),
+        },
+    ),
     # Forecast agreement: Zambretti vs Open-Meteo
     WSSensorDescription(
         key=KEY_FORECAST_AGREEMENT,
@@ -2606,6 +2633,7 @@ _FEATURE_TOGGLE_MAP: dict[str, str] = {
     KEY_FORECAST_BLEND_WEIGHT_LOCAL: CONF_ENABLE_DIAGNOSTICS,
     KEY_FORECAST_AGREEMENT: CONF_ENABLE_DIAGNOSTICS,
     KEY_SOLAR_LUX_FACTOR: CONF_ENABLE_DIAGNOSTICS,
+    KEY_AUTO_CAL_STATUS: CONF_ENABLE_AUTO_CALIBRATION,
     KEY_CLIMATOLOGY_30D: CONF_ENABLE_DIAGNOSTICS,
     KEY_TEMP_ANOMALY_90D: CONF_ENABLE_DIAGNOSTICS,
     KEY_RAIN_ANOMALY_90D: CONF_ENABLE_DIAGNOSTICS,
@@ -2995,6 +3023,7 @@ class WSSensor(RestoreEntity, CoordinatorEntity, SensorEntity):
             KEY_FORECAST_BRIER_API: "forecast_brier_api",
             KEY_FORECAST_BLEND_WEIGHT_LOCAL: "forecast_blend_weight_local",
             KEY_SOLAR_LUX_FACTOR: "solar_lux_factor",
+            KEY_AUTO_CAL_STATUS: "auto_calibration",
             # v1.3.0 - FWI components
             KEY_FWI_FFMC: "fwi_ffmc",
             KEY_FWI_DMC: "fwi_dmc",

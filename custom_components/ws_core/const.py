@@ -902,6 +902,44 @@ SPIKE_SIGMA_THRESHOLD = 3.0  # flag a reading > 3σ from rolling mean
 SPIKE_MIN_SAMPLES = 12  # need at least this many samples to compute σ
 
 # ---------------------------------------------------------------------------
+# v2.7 - Adaptive (auto-apply) sensor calibration
+# ---------------------------------------------------------------------------
+# Opt-in. Reuses the hourly neighbor-QC fetch (Open-Meteo NWP grid point,
+# already used to flag large deviations above) as a slow-moving reference:
+# each hourly sample nudges an EMA of (local - reference) residual bias for
+# temperature/humidity/pressure. Once enough samples have accumulated and the
+# learned bias persistently exceeds a noise deadband, a small bounded step is
+# written into the existing cal_temp_c/cal_humidity/cal_pressure_hpa options
+# (the same options the `apply_calibration` service and the Calibration
+# number entities already read/write) at most once per day. Never overshoots
+# the learned bias, never jumps in one step, and is fully reversible by
+# turning the toggle off or by editing the calibration numbers manually.
+CONF_ENABLE_AUTO_CALIBRATION = "enable_auto_calibration"
+DEFAULT_ENABLE_AUTO_CALIBRATION = False
+
+AUTO_CAL_BIAS_ALPHA = 0.01  # slow EMA (~100 hourly samples ≈ 4 days to mostly converge)
+AUTO_CAL_MIN_SAMPLES = 240  # ≈10 days of hourly neighbor-QC fetches before trusting the bias
+AUTO_CAL_DEADBAND = {
+    # Below this, treat the learned bias as noise - never nudge.
+    "cal_temp_c": 0.3,
+    "cal_humidity": 2.0,
+    "cal_pressure_hpa": 1.0,
+}
+AUTO_CAL_STEP = {
+    # Maximum single-day nudge per field (never overshoots the bias itself).
+    "cal_temp_c": 0.1,
+    "cal_humidity": 0.5,
+    "cal_pressure_hpa": 0.2,
+}
+
+KEY_AUTO_CAL_BIAS_TEMP_C = "auto_cal_bias_temp_c"
+KEY_AUTO_CAL_BIAS_HUMIDITY = "auto_cal_bias_humidity"
+KEY_AUTO_CAL_BIAS_PRESSURE_HPA = "auto_cal_bias_pressure_hpa"
+KEY_AUTO_CAL_N_SAMPLES = "auto_cal_n_samples"
+KEY_AUTO_CAL_STATUS = "auto_cal_status"  # "learning" / "stable" / "adjusted"
+KEY_AUTO_CAL_LAST_APPLIED = "auto_cal_last_applied"  # ISO date of last nudge, or None
+
+# ---------------------------------------------------------------------------
 # v2.0 - CWOP (Citizen Weather Observer Program) upload
 # ---------------------------------------------------------------------------
 

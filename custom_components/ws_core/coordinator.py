@@ -137,6 +137,7 @@ from .const import (
     CONF_DISTANCE_UNIT,
     CONF_ELEVATION_M,
     CONF_ENABLE_AIR_QUALITY,
+    CONF_ENABLE_AUTO_CALIBRATION,
     CONF_ENABLE_AWEKAS,
     CONF_ENABLE_COMFORT_INDICES,
     CONF_ENABLE_CWOP,
@@ -235,6 +236,7 @@ from .const import (
     DEFAULT_CWOP_SERVER,
     DEFAULT_DISTANCE_UNIT,
     DEFAULT_ENABLE_AIR_QUALITY,
+    DEFAULT_ENABLE_AUTO_CALIBRATION,
     DEFAULT_ENABLE_AWEKAS,
     DEFAULT_ENABLE_COMFORT_INDICES,
     DEFAULT_ENABLE_CWOP,
@@ -310,6 +312,12 @@ from .const import (
     # v0.7.0
     KEY_AQI,
     KEY_AQI_LEVEL,
+    KEY_AUTO_CAL_BIAS_HUMIDITY,
+    KEY_AUTO_CAL_BIAS_PRESSURE_HPA,
+    KEY_AUTO_CAL_BIAS_TEMP_C,
+    KEY_AUTO_CAL_LAST_APPLIED,
+    KEY_AUTO_CAL_N_SAMPLES,
+    KEY_AUTO_CAL_STATUS,
     KEY_AWEKAS_STATUS,
     KEY_BATTERY_DISPLAY,
     KEY_BATTERY_PCT,
@@ -2569,8 +2577,85 @@ class WSStationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "pressure_hpa": current.get("surface_pressure"),
                 "fetched_at": dt_util.utcnow().isoformat(),
             }
+            await self._maybe_update_auto_calibration(self._neighbor_qc_cache)
         except Exception:  # noqa: BLE001
             pass  # QC is advisory; never block main flow
+
+    async def _maybe_update_auto_calibration(self, nwp: dict) -> None:
+        """Fold one neighbor-QC sample into the adaptive calibration bias EMA,
+        and - once confident - nudge cal_temp_c/cal_humidity/cal_pressure_hpa a
+        small bounded step toward canceling a persistent bias.  (v2.7)
+
+        Opt-in via enable_auto_calibration. Runs on the same hourly cadence as
+        the neighbor-QC fetch it reuses (~240 samples ≈ 10 days before the
+        first possible nudge), applies at most one nudge per calendar day, and
+        never overshoots the learned bias in a single step - see const.py
+        AUTO_CAL_* for the tuning constants and rationale.
+        """
+        if not self.entry_options.get(CONF_ENABLE_AUTO_CALIBRATION, DEFAULT_ENABLE_AUTO_CALIBRATION):
+            return
+        local = self.data or {}
+        from .const import AUTO_CAL_BIAS_ALPHA, AUTO_CAL_DEADBAND, AUTO_CAL_MIN_SAMPLES, AUTO_CAL_STEP
+        from .learning_state import compute_auto_calibration_step, update_calibration_bias
+
+        update_calibration_bias(
+            self._learning_state,
+            local.get(KEY_NORM_TEMP_C),
+            nwp.get("temp_c"),
+            local.get(KEY_NORM_HUMIDITY),
+            nwp.get("humidity"),
+            local.get(KEY_NORM_PRESSURE_HPA),
+            nwp.get("pressure_hpa"),
+            alpha=AUTO_CAL_BIAS_ALPHA,
+        )
+
+        today_str = dt_util.now().date().isoformat()
+        if self._learning_state.cal_last_auto_apply_date == today_str:
+            return  # already nudged today
+
+        deltas = compute_auto_calibration_step(
+            self._learning_state, AUTO_CAL_MIN_SAMPLES, AUTO_CAL_DEADBAND, AUTO_CAL_STEP
+        )
+        if not deltas:
+            return
+
+        # Bounds mirror number.py's WSNumberDesc native_min/native_max for these
+        # same options, so an auto-nudge can never push a field further than a
+        # user could push it manually.
+        bounds = {
+            "cal_temp_c": (-10.0, 10.0),
+            "cal_humidity": (-20.0, 20.0),
+            "cal_pressure_hpa": (-10.0, 10.0),
+        }
+        new_options = dict(self.config_entry.options)
+        applied: dict[str, float] = {}
+        for cal_field, delta in deltas.items():
+            lo, hi = bounds[cal_field]
+            current_val = float(new_options.get(cal_field, 0.0))
+            new_val = round(max(lo, min(hi, current_val + delta)), 2)
+            if abs(new_val - current_val) < 1e-9:
+                continue  # already at the bound; nothing to write
+            new_options[cal_field] = new_val
+            applied[cal_field] = new_val
+        if not applied:
+            return
+
+        self._learning_state.cal_last_auto_apply_date = today_str
+        _LOGGER.info(
+            "ws_core: auto-calibration nudged %s (learned bias vs regional reference, "
+            "%d samples) - review under Configure → Features if unexpected",
+            applied,
+            self._learning_state.cal_bias_n,
+        )
+        # Persist the learning state *before* triggering the reload below - the
+        # reload tears down this coordinator and a fresh one loads learning
+        # state from storage, so the save must land first or today's
+        # cal_last_auto_apply_date (and the nudged bias EMA) would be lost and
+        # tomorrow's fetch could double-nudge.
+        from .learning_state import async_save_learning
+
+        await async_save_learning(self._learning_store, self._learning_state)
+        self.hass.config_entries.async_update_entry(self.config_entry, options=new_options)
 
     def _compute_neighbor_qc(self, data: dict) -> None:
         """Compare local readings against cached NWP grid point; populate flags."""
@@ -3406,6 +3491,23 @@ class WSStationCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Solar lux factor (always published)
         data[KEY_SOLAR_LUX_FACTOR] = self._learning_state.solar_lux_factor
         data["_solar_lux_factor_n_days"] = self._learning_state.solar_factor_n
+
+        # v2.7 - Adaptive calibration bias (opt-in via enable_auto_calibration)
+        if self.entry_options.get(CONF_ENABLE_AUTO_CALIBRATION, DEFAULT_ENABLE_AUTO_CALIBRATION):
+            from .const import AUTO_CAL_MIN_SAMPLES
+
+            ls = self._learning_state
+            data[KEY_AUTO_CAL_BIAS_TEMP_C] = ls.cal_bias_temp_c
+            data[KEY_AUTO_CAL_BIAS_HUMIDITY] = ls.cal_bias_humidity
+            data[KEY_AUTO_CAL_BIAS_PRESSURE_HPA] = ls.cal_bias_pressure_hpa
+            data[KEY_AUTO_CAL_N_SAMPLES] = ls.cal_bias_n
+            data[KEY_AUTO_CAL_LAST_APPLIED] = ls.cal_last_auto_apply_date or None
+            if ls.cal_bias_n < AUTO_CAL_MIN_SAMPLES:
+                data[KEY_AUTO_CAL_STATUS] = "learning"
+            elif ls.cal_last_auto_apply_date:
+                data[KEY_AUTO_CAL_STATUS] = "adjusted"
+            else:
+                data[KEY_AUTO_CAL_STATUS] = "stable"
 
     # ------------------------------------------------------------------
     # v1.2.0 - Learning state persistence (called from _compute)

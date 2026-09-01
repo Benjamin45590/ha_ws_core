@@ -22,6 +22,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from .const import (
     CONF_ENABLE_ADVANCED_SENSORS,
     CONF_ENABLE_AIR_QUALITY,
+    CONF_ENABLE_AUTO_CALIBRATION,
     CONF_ENABLE_AWEKAS,
     CONF_ENABLE_COMFORT_INDICES,
     CONF_ENABLE_CWOP,
@@ -52,6 +53,7 @@ from .const import (
     CONF_SUPPRESS_NOTIFICATIONS,
     DEFAULT_ENABLE_ADVANCED_SENSORS,
     DEFAULT_ENABLE_AIR_QUALITY,
+    DEFAULT_ENABLE_AUTO_CALIBRATION,
     DEFAULT_ENABLE_AWEKAS,
     DEFAULT_ENABLE_COMFORT_INDICES,
     DEFAULT_ENABLE_CWOP,
@@ -280,6 +282,20 @@ FEATURE_SWITCHES: tuple[WSFeatureDesc, ...] = (
         default=DEFAULT_ENABLE_WINDY,
         name="Feature: Windy Upload",
         icon="mdi:cloud-upload-outline",
+    ),
+    # v2.7
+    WSFeatureDesc(
+        conf_key=CONF_ENABLE_AUTO_CALIBRATION,
+        default=DEFAULT_ENABLE_AUTO_CALIBRATION,
+        name="Feature: Adaptive Sensor Calibration",
+        icon="mdi:tune",
+        description=(
+            "Learns a slow bias estimate vs. the regional forecast reference point "
+            "already used for neighbor QC, and nudges the calibration offsets by a "
+            "small, bounded amount at most once per day once confident (~10 days of "
+            "samples). Never overshoots the learned bias. Off by default; review "
+            "sensor.ws_auto_calibration for what it has learned before enabling."
+        ),
     ),
     # v1.8.4 (issue #20) — inverted: ON means notifications enabled (suppress=False)
     WSFeatureDesc(

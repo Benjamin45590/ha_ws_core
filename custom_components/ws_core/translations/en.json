@@ -148,10 +148,12 @@
           "enable_awekas": "AWEKAS upload",
           "enable_owm_stations": "OpenWeatherMap Stations upload",
           "enable_windy": "Windy.com upload",
-          "enable_mqtt": "MQTT Discovery republishing (publish all derived sensors to MQTT broker for Node-RED / external consumers)"
+          "enable_mqtt": "MQTT Discovery republishing (publish all derived sensors to MQTT broker for Node-RED / external consumers)",
+          "enable_auto_calibration": "Adaptive sensor calibration (learns a bias vs. the regional forecast reference and nudges calibration offsets automatically)"
         },
         "data_description": {
-          "enable_degree_days": "Calculation of Growing, Heating and Cooling Degree Days plus a leaf-wetness estimate, useful for agriculture and energy tracking."
+          "enable_degree_days": "Calculation of Growing, Heating and Cooling Degree Days plus a leaf-wetness estimate, useful for agriculture and energy tracking.",
+          "enable_auto_calibration": "Off by default. Nudges cal_temp_c/cal_humidity/cal_pressure_hpa by a small, bounded amount at most once per day, only once ~10 days of hourly samples show a persistent bias. Review sensor.ws_auto_calibration before enabling."
         }
       },
       "weathercloud": {
@@ -487,7 +489,8 @@
           "enable_degree_days": "Degree days (HDD, CDD, GDD) and leaf wetness",
           "enable_lightning": "Lightning detection sensors",
           "enable_indoor": "Indoor sensors (temperature, humidity, CO₂)",
-          "enable_soil": "Soil sensors (moisture, temperature, irrigation need)"
+          "enable_soil": "Soil sensors (moisture, temperature, irrigation need)",
+          "enable_auto_calibration": "Adaptive sensor calibration (learns bias, nudges calibration automatically)"
         },
         "data_description": {
           "enable_display_sensors": "Display sensors (levels, trends, health)",
@@ -505,7 +508,8 @@
           "enable_diagnostics": "Sensor drift, cross-sensor consistency, quality flags, forecast skill/agreement, solar lux factor, 30-day climatology",
           "enable_fwi_components": "FWI intermediate codes (FFMC/DMC/DC/ISI/BUI). Requires Fire Risk enabled to produce data",
           "enable_advanced_sensors": "Zambretti number (numeric form), hourly ET₀, smoothed wind direction",
-          "enable_nowcast": "Open-Meteo 15-minute precipitation nowcast: minutes until rain starts/stops, next-hour total, intensity. No API key"
+          "enable_nowcast": "Open-Meteo 15-minute precipitation nowcast: minutes until rain starts/stops, next-hour total, intensity. No API key",
+          "enable_auto_calibration": "Off by default. Nudges cal_temp_c/cal_humidity/cal_pressure_hpa by a small, bounded amount at most once per day, only once ~10 days of hourly samples show a persistent bias vs. the regional forecast reference. Review sensor.ws_auto_calibration before enabling."
         }
       },
       "indoor_rooms_opt": {
@@ -1768,6 +1772,31 @@
           }
         }
       },
+      "auto_calibration": {
+        "name": "Auto Calibration",
+        "state": {
+          "learning": "Learning",
+          "stable": "Stable",
+          "adjusted": "Adjusted"
+        },
+        "state_attributes": {
+          "bias_temp_c": {
+            "name": "Learned temperature bias"
+          },
+          "bias_humidity": {
+            "name": "Learned humidity bias"
+          },
+          "bias_pressure_hpa": {
+            "name": "Learned pressure bias"
+          },
+          "samples": {
+            "name": "Samples"
+          },
+          "last_applied": {
+            "name": "Last applied"
+          }
+        }
+      },
       "forecast_agreement": {
         "name": "Forecast Agreement",
         "state": {
@@ -2512,6 +2541,9 @@
       },
       "ws_enable_windy": {
         "name": "Feature: Windy Upload"
+      },
+      "ws_enable_auto_calibration": {
+        "name": "Feature: Adaptive Sensor Calibration"
       }
     },
     "event": {

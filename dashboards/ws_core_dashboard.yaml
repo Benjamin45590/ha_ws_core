@@ -354,6 +354,7 @@ views:
           - sensor.ws_sensor_stuck
           - sensor.ws_sensor_spike
           - sensor.ws_neighbor_qc
+          - sensor.ws_auto_calibration
           - binary_sensor.ws_temperature_stuck
           - binary_sensor.ws_humidity_stuck
           - binary_sensor.ws_pressure_stuck
