@@ -58,7 +58,14 @@ def _binary_sensor_entity_ids(prefix: str = "ws") -> set[str]:
     """Read entity_id slugs from binary_sensor.py."""
     bs_py = (ROOT / "custom_components/ws_core/binary_sensor.py").read_text(encoding="utf-8")
     # Pattern: self.entity_id = f"binary_sensor.{prefix}_package_ok" etc.
-    slugs = re.findall(r'f"binary_sensor\.\{prefix\}_([^"]+)"', bs_py)
+    slugs = set(re.findall(r'f"binary_sensor\.\{prefix\}_([^"]+)"', bs_py))
+    # WSProblemBinarySensor: entity_id is f"binary_sensor.{prefix}_{slug}" built from
+    # the problem_sensors list of (data_key, slug, icon) tuples - the literal-string
+    # pattern above can't see a slug that's a variable, so pull it from the tuples.
+    start = bs_py.find("problem_sensors = [")
+    end = bs_py.find("]", start)
+    if start != -1 and end != -1:
+        slugs |= {m for m in re.findall(r'"([a-z0-9_]+)"\s*,\s*"mdi:', bs_py[start:end])}
     return {f"binary_sensor.{prefix}_{slug}" for slug in slugs}
 
 
@@ -102,18 +109,26 @@ def build_known_entities(prefix: str = "ws") -> set[str]:
 # Dashboard reference extraction
 # ---------------------------------------------------------------------------
 
-_ENTITY_RE = re.compile(
-    r"""(?:entity:\s*|states\s*\[['"])"""
-    r"""((?:sensor|switch|select|sun|input_text|binary_sensor|weather|event)\.[\w]+)"""
-)
+_DOMAINS = r"(?:sensor|switch|select|sun|input_text|binary_sensor|weather|event)"
+
+# `entity: sensor.x` / `states['sensor.x']` can have more content after the
+# match on the same line (e.g. states['sensor.x']?.state) - no end anchor.
+_ENTITY_RE = re.compile(rf"""(?:entity:\s*|states\s*\[['"])({_DOMAINS}\.[\w]+)""")
+
+# A bare `- sensor.x` list item (as used e.g. by `entities:` lists and the
+# `logbook`/`history-graph` cards) is only safe to recognize when it's the
+# entire remainder of the line - otherwise "- " could match mid-string in
+# unrelated content, so this one IS end-anchored.
+_BARE_LIST_ENTITY_RE = re.compile(rf"""^\s*-\s*({_DOMAINS}\.[\w]+)\s*$""")
 
 
 def _dashboard_entity_refs(yaml_path: pathlib.Path) -> dict[str, list[int]]:
     refs: dict[str, list[int]] = {}
     for lineno, line in enumerate(yaml_path.read_text(encoding="utf-8").splitlines(), 1):
-        for m in _ENTITY_RE.finditer(line):
-            eid = m.group(1)
-            refs.setdefault(eid, []).append(lineno)
+        for pattern in (_ENTITY_RE, _BARE_LIST_ENTITY_RE):
+            for m in pattern.finditer(line):
+                eid = m.group(1)
+                refs.setdefault(eid, []).append(lineno)
     return refs
 
 

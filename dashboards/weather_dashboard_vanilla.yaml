@@ -122,6 +122,50 @@ views:
           - entity: sensor.ws_rain_probability_combined
             name: Rain Probability
 
+      # --- Snow (requires Feature: Snow enabled - off by default) ---
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: switch.ws_enable_snow
+            state: "on"
+        card:
+          type: entities
+          title: Snow
+          icon: mdi:snowflake
+          entities:
+            - entity: sensor.ws_snow_phase
+              name: Phase
+            - entity: binary_sensor.ws_snow_falling
+              name: Snow Falling
+            - entity: sensor.ws_snow_rate
+              name: Rate
+            - entity: sensor.ws_snow_today
+              name: Today
+            - entity: sensor.ws_snow_this_month
+              name: This Month
+            - entity: sensor.ws_snow_this_year
+              name: This Year
+
+      # --- vs. Historical Normal (requires Feature: Historical Climate Normals) ---
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: switch.ws_enable_climate_normals
+            state: "on"
+        card:
+          type: entities
+          title: "Vs. Historical Normal"
+          icon: mdi:calendar-clock
+          entities:
+            - entity: sensor.ws_temp_anomaly_normal
+              name: Temperature Anomaly
+            - entity: sensor.ws_rain_anomaly_normal
+              name: Rain Anomaly
+            - entity: sensor.ws_temp_high_normal
+              name: Normal High
+            - entity: sensor.ws_temp_low_normal
+              name: Normal Low
+
       # --- UV & Solar ---
       - type: entities
         title: UV & Solar
@@ -310,6 +354,20 @@ views:
           - event.ws_frost_event
           - event.ws_lightning_event
         hours_to_show: 72
+
+      # --- Adaptive Calibration (requires Feature: Adaptive Sensor Calibration) ---
+      - type: conditional
+        conditions:
+          - condition: state
+            entity: switch.ws_enable_auto_calibration
+            state: "on"
+        card:
+          type: entities
+          title: Adaptive Calibration
+          icon: mdi:tune
+          entities:
+            - entity: sensor.ws_auto_calibration
+              name: Status
 
   # =============================================
   # PAGE 4: ACTIVITY SCORES

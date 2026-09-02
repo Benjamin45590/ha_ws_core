@@ -93,9 +93,10 @@ including the **Recent Weather Events** logbook card.
 
 ## Gauge Presets (`ws_core_gauge_presets.yaml`)
 
-Drop-in gauge card snippets with pre-set severity bands for 12 common sensors:
-temperature, humidity, UV index, AQI, wind speed, rain rate, fire risk score,
-UTCI, VPD, fog probability, thunderstorm risk, and lightning clearance.
+Drop-in gauge card snippets with pre-set severity bands for 13 common sensors:
+temperature, humidity, pressure, wind speed, wind gust, UV index, rain rate,
+rain probability, data quality score, AQI, fire risk score, WBGT, and
+(opt-in, v2.7) snow rate.
 
 Uses only the built-in `gauge` card — no HACS dependencies.
 

@@ -169,6 +169,20 @@ cards:
       yellow: 28
       red: 32
 
+  # Snow rate (0…5 cm/h) — only if enable_snow (v2.7). Bands loosely follow
+  # typical snowfall-intensity categories (light / moderate / heavy).
+  - type: gauge
+    entity: sensor.ws_snow_rate
+    name: Snow Rate
+    unit: cm/h
+    min: 0
+    max: 5
+    needle: true
+    severity:
+      green: 0
+      yellow: 1
+      red: 2.5
+
 ##############################################################################
 # Optional: apexcharts-card radial gauge (nicer animation) — example for UV.
 # Requires the apexcharts-card HACS frontend card.

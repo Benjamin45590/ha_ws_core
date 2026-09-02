@@ -3861,3 +3861,79 @@ views:
               style: |
                 ha-card { min-height: 620px !important; }
                 iframe { width: 100% !important; height: 100% !important; min-height: 620px !important; }
+
+          # ── v2.7 opt-in features (plain native cards - kept simple rather
+          # ── than hand-matching this page's custom button-card styling) ────
+      - type: grid
+        column_span: 4
+        columns: 3
+        card_mod:
+          style: |
+            ha-card {
+              background: transparent !important;
+              box-shadow: none !important;
+              border: none !important;
+              padding: 0 !important;
+            }
+        cards:
+          - type: heading
+            heading: New in 2.7.0 (opt-in features)
+            heading_style: title
+            icon: mdi:new-box
+
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: switch.ws_enable_snow
+                state: "on"
+            card:
+              type: entities
+              title: Snow
+              icon: mdi:snowflake
+              entities:
+                - entity: sensor.ws_snow_phase
+                  name: Phase
+                - entity: binary_sensor.ws_snow_falling
+                  name: Falling
+                - entity: sensor.ws_snow_rate
+                  name: Rate
+                - entity: sensor.ws_snow_today
+                  name: Today
+                - entity: sensor.ws_snow_this_month
+                  name: This Month
+                - entity: sensor.ws_snow_this_year
+                  name: This Year
+
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: switch.ws_enable_climate_normals
+                state: "on"
+            card:
+              type: entities
+              title: "Vs. Historical Normal"
+              icon: mdi:calendar-clock
+              entities:
+                - entity: sensor.ws_temp_anomaly_normal
+                  name: Temperature Anomaly
+                - entity: sensor.ws_rain_anomaly_normal
+                  name: Rain Anomaly
+                - entity: sensor.ws_temp_high_normal
+                  name: Normal High
+                - entity: sensor.ws_temp_low_normal
+                  name: Normal Low
+                - entity: sensor.ws_rain_normal
+                  name: Normal Rain
+
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: switch.ws_enable_auto_calibration
+                state: "on"
+            card:
+              type: entities
+              title: Adaptive Calibration
+              icon: mdi:tune
+              entities:
+                - entity: sensor.ws_auto_calibration
+                  name: Status
